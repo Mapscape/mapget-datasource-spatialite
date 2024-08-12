@@ -1,0 +1,1 @@
+# mapget-datasource-spatialite
