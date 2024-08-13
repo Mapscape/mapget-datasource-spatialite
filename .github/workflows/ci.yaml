@@ -14,7 +14,7 @@ jobs:
       - name: Install packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++ python cmake
+          sudo apt-get install -y g++ python3 cmake
       - name: Install Conan
         run: |
           pip install conan
