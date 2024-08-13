@@ -37,4 +37,4 @@ target_link_libraries(unit-test
     ${NAVINFO_INDEX_LIBS}
 )
 
-add_test(NAME mapget-spatialite-datasource-test COMMAND unit-test)
+add_test(NAME mapget-datasource-spatialite-test COMMAND unit-test)
