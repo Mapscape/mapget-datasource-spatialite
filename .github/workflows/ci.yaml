@@ -31,4 +31,5 @@ jobs:
       - name: Test
         timeout-minutes: 10
         run: |
+          cd build/Release
           ctest -V -R mapget-datasource-spatialite-test
