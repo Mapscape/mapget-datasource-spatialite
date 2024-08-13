@@ -1,5 +1,7 @@
 # mapget-datasource-spatialite
 
+![build status](https://github.com/Mapscape/mapget-datasource-spatialite/actions/workflows/ci.yaml/badge.svg)
+
 This project represents a datasource for [Mapget](https://github.com/ndsev/mapget) that allows viewing [Spatialite](https://www.gaia-gis.it/fossil/libspatialite/index) databases in web browser with [Erdblick](https://github.com/ndsev/erdblick)
 
 Usage:
