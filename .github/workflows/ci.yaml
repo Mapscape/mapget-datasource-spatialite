@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install packages
+        run: |
+          apt-get update && apt-get install g++ python cmake
+      - name: Install Conan
+        run: |
+          pip install conan
+          conan profile detect
+      - name: Configure
+        run: |
+          conan install . -s build_type=Release --build=missing
+          cmake --preset conan-release -DBUILD_TESTS=ON
+      - name: Build
+        run: |
+          cmake --build --preset conan-release
+      - name: Test
+        timeout-minutes: 10
+        run: |
+          ctest -V -R mapget-spatialite-datasource-test
