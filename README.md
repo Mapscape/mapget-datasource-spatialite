@@ -21,10 +21,9 @@ Erdblick will be available at 127.0.0.1:<erdblick_port>
 ## Build
 
 Prerequisites:
-| Dependency | Version |
-|------------|---------|
-| `conan`    | 2.0+    |
-| `cmake`    | 3.25+   |
+- C++20 compatible compiler
+- conan >= 2.0
+- cmake >= 3.25
 
 How to build:
 ```
