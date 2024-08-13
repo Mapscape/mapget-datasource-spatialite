@@ -13,7 +13,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install packages
         run: |
-          apt-get update && apt-get install g++ python cmake
+          sudo apt-get update
+          sudo apt-get install -y g++ python cmake
       - name: Install Conan
         run: |
           pip install conan
