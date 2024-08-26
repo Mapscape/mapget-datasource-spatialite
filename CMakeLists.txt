@@ -18,8 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-cmake_minimum_required(VERSION 3.25)
-cmake_policy(VERSION 3.25)
+cmake_minimum_required(VERSION 3.28)
+cmake_policy(VERSION 3.28)
 
 project(mapget-datasource-spatialite)
 
@@ -34,25 +34,29 @@ if(NAVINFO_INTERNAL_BUILD)
     include("navinfo_deps.cmake")
 else()
     find_package(libspatialite REQUIRED)
+    find_package(Boost REQUIRED COMPONENTS boost program_options)
+    find_package(SQLiteCpp REQUIRED)
+    find_package(nlohmann_json REQUIRED)
+
+    set(MAPGET_WITH_HTTPLIB ON)
+    set(MAPGET_WITH_WHEEL OFF)
+    set(SPDLOG_FMT_EXTERNAL ON)
+
+    FetchContent_Declare(mapget
+        GIT_REPOSITORY "https://github.com/ndsev/mapget"
+        GIT_TAG        "v2024.3.1"
+            GIT_SHALLOW    ON
+            EXCLUDE_FROM_ALL)
+    FetchContent_MakeAvailable(mapget)
 endif()
-
-find_package(Boost REQUIRED COMPONENTS boost program_options)
-find_package(SQLiteCpp REQUIRED)
-find_package(GTest REQUIRED)
-
-set(MAPGET_WITH_HTTPLIB ON)
-set(MAPGET_WITH_WHEEL OFF)
-set(SPDLOG_FMT_EXTERNAL ON)
-
-FetchContent_Declare(mapget
-    GIT_REPOSITORY "https://github.com/ndsev/mapget"
-    GIT_TAG        "v2024.3.1"
-    GIT_SHALLOW    ON)
-FetchContent_MakeAvailable(mapget)
 
 add_subdirectory(src)
 
 if(BUILD_TESTS)
+    if (NOT NAVINFO_INTERNAL_BUILD)
+        find_package(GTest REQUIRED)
+    endif()
+
     enable_testing()
     add_subdirectory(test)
 endif()

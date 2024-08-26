@@ -20,7 +20,7 @@
 
 add_compile_definitions(NAVINFO_INTERNAL_BUILD=$<BOOL:${NAVINFO_INTERNAL_BUILD}>)
 
-add_library(${PROJECT_NAME}-lib
+add_library(${PROJECT_NAME}-lib STATIC
     Datasource.h
     Datasource.cpp
     Database.h
@@ -38,9 +38,12 @@ target_link_libraries(${PROJECT_NAME}-lib
     libspatialite::libspatialite
     boost::boost
     Boost::program_options
+    fmt::fmt
+    nlohmann_json::nlohmann_json
     SQLite::SQLite3
     SQLiteCpp
     mapget-log
+    mapget-model
     mapget-http-datasource
 )
 
@@ -48,4 +51,5 @@ add_executable(${PROJECT_NAME}
     main.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}-lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}-lib)
+install(TARGETS ${PROJECT_NAME})

@@ -21,7 +21,6 @@
 #pragma once
 
 #include <GeometryType.h>
-#include <boost/scope/scope_exit.hpp>
 #include <SQLiteCpp/Database.h>
 #include <fmt/format.h>
 
@@ -29,26 +28,31 @@
 #include <stdexcept>
 #include <vector>
 
-template <class L>
+template <class Deleter>
 class Table
 {
 public:
     Table(
-        const std::string& name, 
-        const std::string geometryColumn, 
-        boost::scope::scope_exit<L>&& guard
+        std::string name, 
+        std::string geometryColumn, 
+        Deleter&& deleter
     ) 
-        : name{name}
-        , geometryColumn{geometryColumn}
-        , m_guard{std::move(guard)} 
+        : name{std::move(name)}
+        , geometryColumn{std::move(geometryColumn)}
+        , m_deleter{std::move(deleter)} 
     {}
+
+    ~Table()
+    {
+        m_deleter();
+    }
 
 public:
     std::string name;
     std::string geometryColumn;
 
 private:
-    boost::scope::scope_exit<L> m_guard;
+    Deleter m_deleter;
 };
 
 /**
@@ -66,18 +70,17 @@ public:
     {
         SQLite::Statement{m_db, "CREATE TABLE tbl (id INT PRIMARY KEY);"}.exec();
 
-        Table table{"tbl", "geometry", boost::scope::make_scope_exit(
-            [this] {
+        Table table{"tbl", "geometry", [this] {
                 SQLite::Statement{m_db, "SELECT DisableSpatialIndex('tbl', 'geometry');"}.executeStep();
                 RemoveNavInfoIndex();
                 SQLite::Statement{m_db, "SELECT DiscardGeometryColumn('tbl', 'geometry');"}.executeStep();
                 SQLite::Statement{m_db, "DROP TABLE tbl;"}.exec();
-        })};
+        }};
 
         AddGeometryColumn(geometry, srid);
         CreateSpatialIndex(spatialIndex, geometry);
 
-        return std::move(table);
+        return table;
     }
 
     void Insert(const std::vector<std::string>& geometries, int srid = Wgs84Srid);
@@ -89,7 +92,7 @@ public:
     {
         auto table = CreateTable(geometry, spatialIndex);
         Insert(geometries);
-        return std::move(table);
+        return table;
     }
 
     [[nodiscard]] const std::filesystem::path& GetPath() const noexcept;

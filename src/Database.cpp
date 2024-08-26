@@ -71,7 +71,7 @@ Database::~Database()
     SQLite::Statement stmt{m_db, R"SQL(
         SELECT spatial_index_enabled FROM geometry_columns WHERE f_table_name = ?;
     )SQL"};
-    stmt.bind(1, tableName);
+    stmt.bind(1, boost::to_lower_copy(tableName));
     if (!stmt.executeStep())
     {
         throw std::runtime_error{fmt::format("Table '{}' is not in 'geometry_columns'", tableName)};

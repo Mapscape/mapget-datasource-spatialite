@@ -18,16 +18,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <gtest/gtest.h>
-#include <boost/scope/defer.hpp>
+#include <boost/scope_exit.hpp>
 #include <sqlite3.h>
 #include <spatialite.h>
 
 int main(int argc, char **argv) 
 {
     spatialite_initialize();
-    BOOST_SCOPE_DEFER []{
+    BOOST_SCOPE_EXIT(void) {
         spatialite_shutdown();
-    };
+    } BOOST_SCOPE_EXIT_END
 
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

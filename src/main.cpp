@@ -26,7 +26,7 @@
 #include <sqlite3.h>
 #include <spatialite.h>
 
-#include <boost/scope/defer.hpp>
+#include <boost/scope_exit.hpp>
 #include <boost/program_options.hpp>
 
 #include <iostream>
@@ -62,9 +62,9 @@ int main(int argc, char** argv)
         mapget::log().set_level(spdlog::level::debug);
     
     spatialite_initialize();
-    BOOST_SCOPE_DEFER []{
+    BOOST_SCOPE_EXIT(void) {
         spatialite_shutdown();
-    };
+    } BOOST_SCOPE_EXIT_END
     
     SpatialiteDatasource::Datasource ds{mapPath, infoPath, port};
     ds.Run();
