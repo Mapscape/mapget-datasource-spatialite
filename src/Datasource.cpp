@@ -32,7 +32,7 @@ namespace SpatialiteDatasource {
 
 Datasource::Datasource(const std::filesystem::path& mapPath, const std::filesystem::path& jsonInfoPath, uint16_t port)
     : m_db{mapPath}
-    , m_ds{LoadDataSourceInfoFromJson(jsonInfoPath)}
+    , m_ds{jsonInfoPath.empty() ? LoadDataSourceInfoFromDatabase(m_db) : LoadDataSourceInfoFromJson(jsonInfoPath)}
     , m_port{port}
 {
     m_ds.onTileRequest(
@@ -63,6 +63,27 @@ void Datasource::Run()
     nlohmann::json j;
     i >> j;
     return mapget::DataSourceInfo::fromJson(j);
+}
+
+[[nodiscard]] mapget::DataSourceInfo Datasource::LoadDataSourceInfoFromDatabase(const Database& db)
+{
+    nlohmann::json infoJson;
+    infoJson["mapId"] = db.GetDatabaseFilePath();
+    infoJson["layers"] = nlohmann::json::object();
+    auto& layers = infoJson["layers"];
+
+    const auto tables = db.GetTablesNames();
+    for (const auto& table : tables)
+    {
+        layers[table] = {{"featureTypes", nlohmann::json::array({nlohmann::json::object({
+            {"name", table},
+            {"uniqueIdCompositions", nlohmann::json::array({nlohmann::json::array({nlohmann::json::object({
+                {"partId", "id"},
+                {"datatype", "I32"}
+        })})})}})})}};
+    }
+    mapget::log().info("Datasource info read from the database:\n{}", infoJson.dump(2));
+    return mapget::DataSourceInfo::fromJson(infoJson);
 }
 
 void Datasource::Fill(const mapget::TileFeatureLayer::Ptr& tile) const

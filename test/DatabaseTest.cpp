@@ -79,6 +79,14 @@ TEST_F(SpatialiteDatabaseTest, GeometryColumnInfoIsReturned)
     EXPECT_EQ(geomInfo.type, GAIA_POINT);
 }
 
+TEST_F(SpatialiteDatabaseTest, TablesNamesAreReturned)
+{
+    const auto table = testDb->CreateTable("POINT", SpatialIndex::None);
+    const auto tablesNames = spatialiteDb.GetTablesNames();
+    ASSERT_EQ(tablesNames.size(), 1);
+    EXPECT_EQ(tablesNames[0], "tbl");
+}
+
 TEST_F(SpatialiteDatabaseTest, EmptyViewDoesNotThrow)
 {
     const auto table = testDb->CreateTable("POINT", SpatialIndex::None);

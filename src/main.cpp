@@ -46,7 +46,7 @@ int main(int argc, char** argv)
         ("help", "produce help message")
         ("map,m", po::value(&mapPath), "path to a spatialite database to use")
         ("port,p", po::value(&port)->default_value(0), "http server port")
-        ("info,i", po::value(&infoPath), "path to a datasource info in json format")
+        ("info,i", po::value(&infoPath), "path to a datasource info in json format (will retrieve the info from the db if not provided)")
         ("verbose,v", po::bool_switch(&isVerbose), "enable debug logs");
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, description), vm);

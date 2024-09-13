@@ -45,6 +45,7 @@ public:
 
 private:
     [[nodiscard]] static mapget::DataSourceInfo LoadDataSourceInfoFromJson(const std::filesystem::path& jsonInfoPath);
+    [[nodiscard]] static mapget::DataSourceInfo LoadDataSourceInfoFromDatabase(const Database& db);
     /**
      * @brief Fill the given tile with geometries
      * 

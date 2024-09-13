@@ -92,4 +92,22 @@ Database::~Database()
     }
 }
 
+[[nodiscard]] std::vector<std::string> Database::GetTablesNames() const
+{
+    std::vector<std::string> tables;
+    SQLite::Statement stmt{m_db, R"SQL(
+        SELECT f_table_name FROM geometry_columns;
+    )SQL"};
+    while (stmt.executeStep())
+    {
+        tables.emplace_back(stmt.getColumn(0));
+    }
+    return tables;
+}
+
+[[nodiscard]] const std::string& Database::GetDatabaseFilePath() const
+{
+    return m_db.getFilename();
+}
+
 } // namespace SpatialiteDatasource

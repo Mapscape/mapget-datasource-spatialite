@@ -66,6 +66,16 @@ public:
     [[nodiscard]] SpatialIndex GetSpatialIndexType(const std::string& tableName) const;
 
     /**
+     * @brief Get names of the tables that have a geometry column
+     */
+    [[nodiscard]] std::vector<std::string> GetTablesNames() const;
+
+    /**
+     * @brief Get the path to the database
+     */
+    [[nodiscard]] const std::string& GetDatabaseFilePath() const;
+
+    /**
      * @brief Get geometries within MBR
      * 
      * @tparam GeomType Type of the geometry @sa GeometryType.h
