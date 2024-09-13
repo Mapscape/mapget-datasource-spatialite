@@ -9,7 +9,7 @@ Usage:
   --help                 produce help message
   -m [ --map ] arg       path to a spatialite database to use
   -p [ --port ] arg (=0) http server port
-  -i [ --info ] arg      path to a datasource info in json format (will be removed soon)
+  -i [ --info ] arg      path to a datasource info in json format (will retrieve the info from the db if not provided)
   -v [ --verbose ]       enable debug logs
 ```
 
