@@ -21,12 +21,16 @@
 add_compile_definitions(NAVINFO_INTERNAL_BUILD=$<BOOL:${NAVINFO_INTERNAL_BUILD}>)
 
 add_library(${PROJECT_NAME}-lib STATIC
+    AttributesInfo.h
+    AttributesInfo.cpp
     Datasource.h
     Datasource.cpp
     Database.h
     Database.cpp
     GeometriesView.h
     GeometryType.h
+    IFeature.h
+    MapgetFeature.h
     SqlStatements.h
     NavInfoIndex.h
     $<IF:$<BOOL:${NAVINFO_INTERNAL_BUILD}>,NavInfoIndex.cpp,NavInfoIndexDummy.cpp>

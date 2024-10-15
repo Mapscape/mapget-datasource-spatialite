@@ -20,7 +20,8 @@
 
 #pragma once
 
-#include "IGeometry.h"
+#include "IFeature.h"
+#include "AttributesInfo.h"
 
 #include <SQLiteCpp/Statement.h>
 #include <SQLiteCpp/Column.h>
@@ -34,8 +35,8 @@ template <GeometryType GeomType, Dimension Dim>
 class Geometry
 {
 public:
-    explicit Geometry(SQLite::Statement& stmt) noexcept 
-        : m_stmt{stmt}
+    explicit Geometry(SQLite::Statement& stmt, const AttributesInfo& attributes) noexcept 
+        : m_stmt{stmt}, m_attributes{attributes}
     {}
 
     /**
@@ -49,27 +50,27 @@ public:
     }
 
     /**
-     * @brief Add the geometry into the given storage
-     * 
-     * @param geometryStorage Geometry storage
+     * @brief Add the geometry and it's attributes to the given feature
      */
-    void AddTo(IGeometryStorage& geometryStorage)
+    void AddTo(IFeature& feature)
     {
+        AddAttributesTo(feature);
+
         if constexpr (GeomType == GeometryType::Point)
         {
-            AddPointTo(geometryStorage);
+            AddPointTo(feature);
         }
         else if constexpr (GeomType == GeometryType::MultiPoint)
         {
-            AddMultiPointTo(geometryStorage);
+            AddMultiPointTo(feature);
         }
         else if constexpr (GeomType == GeometryType::Line || GeomType == GeometryType::Polygon)
         {
-            AddLineTo(geometryStorage);
+            AddLineTo(feature);
         }
         else if constexpr (GeomType == GeometryType::MultiLine || GeomType == GeometryType::MultiPolygon)
         {
-            AddMultiLineTo(geometryStorage);
+            AddMultiLineTo(feature);
         }
         else
         {
@@ -78,26 +79,46 @@ public:
     }
 
 private:
-    void AddPointTo(IGeometryStorage& geometryFabric)
+    void AddAttributesTo(IFeature& feature)
     {
-        auto geometry = geometryFabric.AddGeometry(GeomType, 1);
+        for (const auto& [name, type] : m_attributes)
+        {
+            const auto value = m_stmt.getColumn(name.c_str());
+            switch (type)
+            {
+            case ColumnType::Int64:
+                feature.AddAttribute(name, value.getInt64());
+                break;
+            case ColumnType::Double:
+                feature.AddAttribute(name, value.getDouble());
+                break;
+            case ColumnType::String:
+                feature.AddAttribute(name, value.getString());
+                break;
+            }
+        }
+    }
+
+    void AddPointTo(IFeature& feature)
+    {
+        auto geometry = feature.AddGeometry(GeomType, 1);
         geometry->AddPoint(m_stmt.getColumns<mapget::Point, static_cast<int>(Dim)>());
         m_stmt.executeStep();
     }
 
-    void AddMultiPointTo(IGeometryStorage& geometryFabric)
+    void AddMultiPointTo(IFeature& feature)
     {
         const int count = m_stmt.getColumn("pointsCount");
         for (int i = count; i > 0; --i)
         {
-            AddPointTo(geometryFabric);
+            AddPointTo(feature);
         }
     }
 
-    void AddLineTo(IGeometryStorage& geometryFabric)
+    void AddLineTo(IFeature& feature)
     {
         const int count = m_stmt.getColumn("pointsCount");
-        auto geometry = geometryFabric.AddGeometry(GeomType, count);
+        auto geometry = feature.AddGeometry(GeomType, count);
         for (int i = count; i > 0; --i)
         {
             geometry->AddPoint(m_stmt.getColumns<mapget::Point, static_cast<int>(Dim)>());
@@ -105,17 +126,18 @@ private:
         }
     }
 
-    void AddMultiLineTo(IGeometryStorage& geometryFabric)
+    void AddMultiLineTo(IFeature& feature)
     {
         const int count = m_stmt.getColumn("linesCount");
         for (int i = count; i > 0; --i)
         {
-            AddLineTo(geometryFabric);
+            AddLineTo(feature);
         }
     }
 
 private:
     SQLite::Statement& m_stmt;
+    const AttributesInfo& m_attributes;
 };
 
 template <GeometryType GeomType, Dimension Dim>
@@ -124,8 +146,8 @@ class GeometryIterator
 public:
     GeometryIterator() noexcept = default;
 
-    explicit GeometryIterator(SQLite::Statement& stmt) noexcept
-        : m_stmt{&stmt}
+    explicit GeometryIterator(SQLite::Statement& stmt, const AttributesInfo& attributes) noexcept
+        : m_stmt{&stmt}, m_attributes{&attributes}
     {}
 
     GeometryIterator& operator++() noexcept
@@ -136,7 +158,7 @@ public:
     }
     [[nodiscard]] Geometry<GeomType, Dim> operator*() const noexcept
     {
-        return Geometry<GeomType, Dim>{*m_stmt};
+        return Geometry<GeomType, Dim>{*m_stmt, *m_attributes};
 
     }
     [[nodiscard]] bool operator==(const GeometryIterator& other) const noexcept
@@ -146,6 +168,7 @@ public:
 
 private:
     SQLite::Statement* m_stmt = nullptr;
+    const AttributesInfo* const m_attributes = nullptr;
 };
 
 } // namespace Detail
@@ -162,14 +185,14 @@ class GeometriesView
 public:
     using Iterator = Detail::GeometryIterator<GeomType, Dim>;
 
-    explicit GeometriesView(SQLite::Statement&& stmt) noexcept 
-        : m_stmt{std::move(stmt)}
+    explicit GeometriesView(SQLite::Statement&& stmt, const AttributesInfo& attributes) noexcept 
+        : m_stmt{std::move(stmt)}, m_attributes{attributes}
     {}
 
     Iterator begin()
     {
         if (m_stmt.executeStep())
-            return Iterator{m_stmt};
+            return Iterator{m_stmt, m_attributes};
         else
             return {};
     }
@@ -180,6 +203,7 @@ public:
 
 private:
     SQLite::Statement m_stmt;
+    const AttributesInfo& m_attributes;
 };
 
 } // namespace SpatialiteDatasource

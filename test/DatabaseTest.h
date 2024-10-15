@@ -25,15 +25,11 @@
 #include <Database.h>
 
 #include <gtest/gtest.h>
+#include <memory>
 
 class SpatialiteDatabaseTest : public testing::Test
 {
 public:
-    SpatialiteDatabaseTest()
-        : spatialiteDb{testDb->GetPath()}
-    {
-    }
-
     static void SetUpTestSuite()
     {
         testDb = std::make_unique<TestDbDriver>();
@@ -46,15 +42,40 @@ public:
         std::filesystem::remove(path);
     }
 
+    auto InitializeDbWithEmptyTable(const std::string& geometry, SpatialiteDatasource::SpatialIndex spatialIndex, int srid = Wgs84Srid)
+    {
+        auto table = testDb->CreateTable(geometry, spatialIndex, srid);
+        InitializeDb();
+        return table;
+    }
+
+    auto InitializeDbWithGeometries(
+        const std::string& geometry, 
+        SpatialiteDatasource::SpatialIndex spatialIndex,
+        const std::vector<std::string>& geometries
+    )
+    {
+        auto table = testDb->CreateTableWithGeometries(geometry, spatialIndex, geometries);
+        InitializeDb();
+        return table;
+    }
+
+    void InitializeDb()
+    {
+        spatialiteDb = std::make_unique<SpatialiteDatasource::Database>(testDb->GetPath());
+    }
+
     template <SpatialiteDatasource::GeometryType GeomType, SpatialiteDatasource::Dimension Dim, class L>
     [[nodiscard]] auto GetGeometries(const Table<L>& table)
     {
-        return spatialiteDb.GetGeometries<GeomType, Dim>(
-            table.name, table.geometryColumn, mbr);
+        return spatialiteDb->GetGeometries<GeomType, Dim>(
+            table.name, table.geometryColumn, emptyAttributesInfo, mbr);
     }
 
-    SpatialiteDatasource::Database spatialiteDb;
+    std::unique_ptr<SpatialiteDatasource::Database> spatialiteDb;
 
     static constexpr SpatialiteDatasource::Mbr mbr{0, 0, 100, 100};
+    inline static const SpatialiteDatasource::AttributesInfo emptyAttributesInfo{};
+private:
     static std::unique_ptr<TestDbDriver> testDb;
 };

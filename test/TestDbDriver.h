@@ -28,6 +28,8 @@
 #include <stdexcept>
 #include <vector>
 
+static constexpr int Wgs84Srid = 4326;
+
 template <class Deleter>
 class Table
 {
@@ -60,7 +62,6 @@ private:
  */
 class TestDbDriver
 {
-    static constexpr int Wgs84Srid = 4326;
 public:
     TestDbDriver();
 
@@ -68,7 +69,13 @@ public:
 
     auto CreateTable(const std::string& geometry, SpatialiteDatasource::SpatialIndex spatialIndex, int srid = Wgs84Srid)
     {
-        SQLite::Statement{m_db, "CREATE TABLE tbl (id INT PRIMARY KEY);"}.exec();
+        SQLite::Statement{m_db, R"SQL(
+            CREATE TABLE tbl (
+                id INT PRIMARY KEY, 
+                intAttribute INTEGER, 
+                doubleAttribute FLOAT, 
+                stringAttribute STRING);
+            )SQL"}.exec();
 
         Table table{"tbl", "geometry", [this] {
                 SQLite::Statement{m_db, "SELECT DisableSpatialIndex('tbl', 'geometry');"}.executeStep();

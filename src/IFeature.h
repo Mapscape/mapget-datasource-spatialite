@@ -41,20 +41,32 @@ struct IGeometry
 };
 
 /**
- * @brief Interface for the geometry storage
+ * @brief Interface for a map feature
  *  This interface was created in order to separate Mapget api from the spatialite code,
  *  and make unit testing much easier
  */
-struct IGeometryStorage
+struct IFeature
 {
     /**
-     * @brief Add geometry to the storage
+     * @brief Add geometry to the feature
      * 
      * @param type Type of the geometry to add
      * @param initialCapacity Initial capacity (points) of the geometry
      * @return Created geometry
      */
     virtual std::unique_ptr<IGeometry> AddGeometry(GeometryType type, size_t initialCapacity) = 0;
+
+    /**
+     * @brief Add attribute to the feature
+     * 
+     * @param name Name of the attribute
+     * @param value Attribute value
+     */
+    virtual void AddAttribute(std::string_view name, int64_t value) = 0;
+    /*! @copydoc IFeature::AddAttribute() */
+    virtual void AddAttribute(std::string_view name, double value) = 0;
+    /*! @copydoc IFeature::AddAttribute() */
+    virtual void AddAttribute(std::string_view name, std::string_view value) = 0;
 };
 
 } // namespace SpatialiteDatasource

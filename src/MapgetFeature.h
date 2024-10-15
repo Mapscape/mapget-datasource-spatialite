@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "IGeometry.h"
+#include "IFeature.h"
 
 #include <mapget/model/feature.h>
 
@@ -41,15 +41,28 @@ private:
     mapget::model_ptr<mapget::Geometry> m_geometry;
 };
 
-class MapgetFeatureGeometryStorage : public IGeometryStorage
+class MapgetFeature : public IFeature
 {
 public:
-    explicit MapgetFeatureGeometryStorage(mapget::Feature& feature) : m_feature{feature} {}
+    explicit MapgetFeature(mapget::Feature& feature) : m_feature{feature} {}
 
     std::unique_ptr<IGeometry> AddGeometry(GeometryType type, size_t initialCapacity) final
     {
         return std::make_unique<MapgetGeometry>(
             m_feature.geom()->newGeometry(GeometryToMapgetGeometry(type), initialCapacity));
+    }
+
+    void AddAttribute(std::string_view name, int64_t value) final
+    {
+        m_feature.attributes()->addField(name, value);
+    }
+    void AddAttribute(std::string_view name, double value) final
+    {
+        m_feature.attributes()->addField(name, value);
+    }
+    void AddAttribute(std::string_view name, std::string_view value) final
+    {
+        m_feature.attributes()->addField(name, value);
     }
 
 private:

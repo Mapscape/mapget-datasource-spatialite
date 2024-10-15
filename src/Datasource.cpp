@@ -19,7 +19,9 @@
 // SOFTWARE.
 
 #include "Datasource.h"
+#include "AttributesInfo.h"
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <nlohmann/json.hpp>
 #include <mapget/log.h>
 #include <spatialite/gg_const.h>
@@ -35,6 +37,42 @@ Datasource::Datasource(const std::filesystem::path& mapPath, const std::filesyst
     , m_ds{jsonInfoPath.empty() ? LoadDataSourceInfoFromDatabase(m_db) : LoadDataSourceInfoFromJson(jsonInfoPath)}
     , m_port{port}
 {
+}
+
+void Datasource::EnableAttributes()
+{
+    const auto tables = m_db.GetTablesNames();
+    std::string logMessage = "Datasource info read from the database:";
+    for (const auto& table : tables)
+    {
+        logMessage += fmt::format("\n{}:", table);
+        auto& attributesInfo = m_attributesInfo[table];
+        attributesInfo = m_db.GetTableAttributes(table);
+        for (const auto& attr : attributesInfo)
+        {
+            logMessage += fmt::format("\n{}: {}", attr.name, ColumnTypeToString(attr.type));
+        }
+    }
+    mapget::log().info(logMessage);
+}
+void Datasource::EnableAttributesWithInfoJson(const std::filesystem::path& attributesInfoPath)
+{
+    mapget::log().info("Reading attributes info from {}", attributesInfoPath.string());
+    std::ifstream file{attributesInfoPath};
+    nlohmann::json json;
+    file >> json;
+    for (const auto& [table, attributes] : json.items())
+    {
+        const auto tableName = boost::to_lower_copy(table);
+        for (const auto& [name, type] : attributes.items())
+        {
+            m_attributesInfo[tableName].emplace_back(name, ParseColumnType(type));
+        }
+    }
+}
+
+void Datasource::Run()
+{
     m_ds.onTileRequest(
         [this](auto&& tile)
         {
@@ -46,11 +84,8 @@ Datasource::Datasource(const std::filesystem::path& mapPath, const std::filesyst
             {
                 mapget::log().error(e.what());
             }
-        });
 }
-
-void Datasource::Run()
-{
+    );
     m_ds.go("0.0.0.0", m_port);
     mapget::log().info("Running on port {}...", m_ds.port());
     m_ds.waitForSignal();

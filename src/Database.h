@@ -22,8 +22,11 @@
 
 #include "GeometriesView.h"
 #include "SqlStatements.h"
+#include "AttributesInfo.h"
 
+#include <mapget/log.h>
 #include <SQLiteCpp/Database.h>
+#include <unordered_map>
 
 namespace SpatialiteDatasource {
 
@@ -76,12 +79,18 @@ public:
     [[nodiscard]] const std::string& GetDatabaseFilePath() const;
 
     /**
+     * @brief Get a description of additional attributes (all columns besides primary key and geometry)
+     */
+    [[nodiscard]] AttributesInfo GetTableAttributes(const std::string& tableName) const;
+
+    /**
      * @brief Get geometries within MBR
      * 
      * @tparam GeomType Type of the geometry @sa GeometryType.h
      * @tparam Dim Dimension of the geometry (2D/3D)
      * @param tableName Name of the table that stores geometries
      * @param geometryColumn Name of the spatialite geometry column in the table
+     * @param attributesInfo Geometries additional attributes info
      * @param mbr Minimum bounding rectangle
      * @return Geometry view that iterates over geometries
      */
@@ -89,19 +98,31 @@ public:
     [[nodiscard]] auto GetGeometries(
         const std::string& tableName, 
         const std::string& geometryColumn, 
+        const AttributesInfo& attributesInfo,
         const Mbr& mbr) const
     {
         SQLite::Statement stmt{m_db, GetSqlQuery<GeomType, Dim>(
-            tableName, geometryColumn, GetSpatialIndexType(tableName))};
+            tableName, 
+            m_primaryKeys.at(tableName), 
+            geometryColumn, 
+            attributesInfo, 
+            GetSpatialIndexType(tableName))
+        };
         stmt.bind("@xMin", mbr.xmin);
         stmt.bind("@yMin", mbr.ymin);
         stmt.bind("@xMax", mbr.xmax);
         stmt.bind("@yMax", mbr.ymax);
-        return GeometriesView<GeomType, Dim>{std::move(stmt)};
+        mapget::log().debug("Getting geometries with an SQL query: {}", stmt.getExpandedSQL());
+        return GeometriesView<GeomType, Dim>{std::move(stmt), attributesInfo};
     }
+private:
+    [[nodiscard]] std::string GetPrimaryKeyColumnName(const std::string& tableName) const;
+    [[nodiscard]] std::string GetGeometryColumnName(const std::string& tableName) const;
+
 private:
     const SQLite::Database m_db;
     void* m_spatialiteCache;
+    std::unordered_map<std::string, std::string> m_primaryKeys;
 };
 
 } // namespace SpatialiteDatasource

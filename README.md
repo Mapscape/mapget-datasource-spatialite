@@ -6,11 +6,13 @@ This project represents a datasource for [Mapget](https://github.com/ndsev/mapge
 
 Usage:
 ```
-  --help                 produce help message
-  -m [ --map ] arg       path to a spatialite database to use
-  -p [ --port ] arg (=0) http server port
-  -i [ --info ] arg      path to a datasource info in json format (will retrieve the info from the db if not provided)
-  -v [ --verbose ]       enable debug logs
+  --help                  produce help message
+  -m [ --map ] arg        path to a spatialite database to use
+  -p [ --port ] arg (=0)  http server port
+  -i [ --info ] arg       path to a datasource info in json format (will retrieve the info from the db if not provided)
+  -a [ --attributes ] arg path to an attributes info in json format (will retrieve the info from the db if not provided)
+  --no-attributes         do not add any attributes to features
+  -v [ --verbose ]        enable debug logs
 ```
 
 With Mapget and Erdblick it can be used like this:

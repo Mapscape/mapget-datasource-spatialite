@@ -22,9 +22,11 @@ add_compile_definitions(NAVINFO_INTERNAL_BUILD=$<BOOL:${NAVINFO_INTERNAL_BUILD}>
 
 add_executable(unit-test
     main.cpp
+    AttributesTest.cpp
     DatabaseTest.h
     DatabaseTest.cpp
-    GeometryMock.h
+    FeatureMock.h
+    GeometriesTest.cpp
     TestDbDriver.h
     TestDbDriver.cpp
     $<IF:$<BOOL:${NAVINFO_INTERNAL_BUILD}>,NavInfoIndex.cpp,NavInfoIndexDummy.cpp>

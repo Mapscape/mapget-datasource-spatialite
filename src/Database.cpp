@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 #include "Database.h"
+#include "AttributesInfo.h"
 #include "GeometryType.h"
 #include "NavInfoIndex.h"
 
@@ -27,6 +28,7 @@
 #include <spatialite.h>
 #include <fmt/format.h>
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include <stdexcept>
 
@@ -37,6 +39,11 @@ Database::Database(const std::filesystem::path& dbPath)
 {
     m_spatialiteCache = spatialite_alloc_connection();
     spatialite_init_ex(m_db.getHandle(), m_spatialiteCache, 0);
+
+    for (const auto& table : GetTablesNames())
+    {
+        m_primaryKeys[table] = GetPrimaryKeyColumnName(table);
+    }
 }
 Database::~Database()
 {
@@ -108,6 +115,69 @@ Database::~Database()
 [[nodiscard]] const std::string& Database::GetDatabaseFilePath() const
 {
     return m_db.getFilename();
+}
+
+[[nodiscard]] AttributesInfo Database::GetTableAttributes(const std::string& tableName) const
+{
+    AttributesInfo info;
+    const auto tableNameLower = boost::to_lower_copy(tableName);
+
+    const auto pkNameIter = m_primaryKeys.find(tableNameLower);
+    if (pkNameIter == m_primaryKeys.end())
+        throw std::runtime_error{fmt::format("Can't find primary key column name for table '{}'", tableName)};
+    const auto geometryColumn = GetGeometryColumnName(tableNameLower);
+
+    // PRAGMA_TABLE_INFO gives unreliable results that may differ 
+    // from version to version and depends on the way a table was created,
+    // so it's easier to get a row from the table and check types by sqlite API
+    SQLite::Statement stmt{m_db, fmt::format(R"SQL(
+        SELECT * FROM {} LIMIT 1;
+    )SQL", tableNameLower)};
+    if (stmt.executeStep()) // if no - table is empty, return empty info
+    {
+        for (int i = 0; i < stmt.getColumnCount(); ++i)
+        {
+            const auto column = stmt.getColumn(i);
+            std::string name = column.getName();
+            // skip id and geometry
+            if (boost::iequals(name, pkNameIter->second) || boost::iequals(name, geometryColumn))
+                continue;
+            info.emplace_back(std::move(name), ColumnTypeFromSqlType(column.getType()));
+        }
+    }
+    return info;
+}
+
+[[nodiscard]] std::string Database::GetPrimaryKeyColumnName(const std::string& tableName) const
+{
+    SQLite::Statement stmt{m_db, fmt::format(R"SQL(
+        SELECT name FROM PRAGMA_TABLE_INFO('{}') WHERE pk = 1;
+    )SQL", tableName)};
+    if (!stmt.executeStep()) [[unlikely]]
+    {
+        mapget::log().warn("Can't find primary key column for table '{}'. Trying to use 'id'...", tableName);
+        SQLite::Statement idStmt{m_db, fmt::format(R"SQL(
+            SELECT name FROM PRAGMA_TABLE_INFO('{}') WHERE LOWER(name) = 'id';
+        )SQL", tableName)};
+        if (!idStmt.executeStep())
+        {
+            mapget::log().warn("Can't find primary key column for table '{}'. Using 'rowid' instead", tableName);
+            return "rowid";
+        }
+        return idStmt.getColumn(0);
+    }
+    return stmt.getColumn(0);
+}
+
+[[nodiscard]] std::string Database::GetGeometryColumnName(const std::string& tableName) const
+{
+    SQLite::Statement stmt{m_db, R"SQL(
+        SELECT f_geometry_column FROM geometry_columns WHERE f_table_name = ?;
+    )SQL"};
+    stmt.bind(1, tableName);
+    if (!stmt.executeStep()) [[unlikely]]
+        throw std::runtime_error{fmt::format("Failed to get a geometry column name for table '{}'", tableName)};
+    return stmt.getColumn(0);
 }
 
 } // namespace SpatialiteDatasource
