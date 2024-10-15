@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include <IGeometry.h>
+#include <IFeature.h>
 
 #include <gtest/gtest.h>
 
@@ -38,7 +38,14 @@ struct GeometryMock : SpatialiteDatasource::IGeometry
     std::vector<mapget::Point>& geometry;
 };
 
-struct GeometryStorageMock : SpatialiteDatasource::IGeometryStorage
+template <typename T>
+struct Attribute
+{
+    std::string name;
+    T value;
+};
+
+struct FeatureMock : SpatialiteDatasource::IFeature
 {
     std::unique_ptr<SpatialiteDatasource::IGeometry> AddGeometry(
         SpatialiteDatasource::GeometryType type, size_t initialCapacity) override
@@ -48,7 +55,45 @@ struct GeometryStorageMock : SpatialiteDatasource::IGeometryStorage
         return std::make_unique<GeometryMock>(geometries.emplace_back());
     }
 
+    void AddAttribute(std::string_view name, int64_t value) override
+    {
+        ++attributesCount;
+        intAttribute.name = name;
+        intAttribute.value = value;
+    }
+    void AddAttribute(std::string_view name, double value) override
+    {
+        ++attributesCount;
+        doubleAttribute.name = name;
+        doubleAttribute.value = value;
+    }
+    void AddAttribute(std::string_view name, std::string_view value) override
+    {
+        ++attributesCount;
+        stringAttribute.name = name;
+        stringAttribute.value = value;
+    }
+
+    void CheckAttributes() const
+    {
+        EXPECT_EQ(attributesCount, 3);
+
+        EXPECT_EQ(intAttribute.name, "intAttribute");
+        EXPECT_EQ(intAttribute.value, 42);
+
+        EXPECT_EQ(doubleAttribute.name, "doubleAttribute");
+        EXPECT_EQ(doubleAttribute.value, 6.66);
+
+        EXPECT_EQ(stringAttribute.name, "stringAttribute");
+        EXPECT_EQ(stringAttribute.value, "value");
+    }
+
     Geometries geometries;
     std::vector<SpatialiteDatasource::GeometryType> types;
     std::vector<size_t> initialCapacities;
+
+    size_t attributesCount = 0;
+    Attribute<int64_t> intAttribute;
+    Attribute<double> doubleAttribute;
+    Attribute<std::string> stringAttribute;
 };

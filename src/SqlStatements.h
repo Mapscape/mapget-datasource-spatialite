@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "AttributesInfo.h"
 #include "GeometryType.h"
 #include "NavInfoIndex.h"
 
@@ -40,7 +41,7 @@ inline std::string GetMbrCondition(const std::string& tableName, const std::stri
         return fmt::format("Intersects(t.{}, BuildMbr(@xMin, @yMin, @xMax, @yMax))", geometryColumn);
     case SpatialIndex::RTree:
         return fmt::format(R"SQL(
-            id IN (
+            t.rowid IN (
                 SELECT rowid 
                 FROM SpatialIndex
                 WHERE f_table_name = '{}' 
@@ -48,7 +49,7 @@ inline std::string GetMbrCondition(const std::string& tableName, const std::stri
         )SQL", tableName);
     case SpatialIndex::MbrCache:
         return fmt::format(R"SQL(
-            id IN (
+            t.rowid IN (
                 SELECT rowid 
                 FROM cache_{}_{}
                 WHERE mbr = FilterMbrIntersects(@xMin, @yMin, @xMax, @yMax))
@@ -88,6 +89,16 @@ consteval std::string_view GetExteriorRingFunc(GeometryType geometryType)
     return "";
 }
 
+inline std::string GetAttributesList(const AttributesInfo& attributesInfo)
+{
+    std::string result;
+    for (const auto& attributeInfo : attributesInfo)
+    {
+        result += attributeInfo.name + ", ";
+    }
+    return result;
+}
+
 consteval std::string_view GetSqlQueryTemplate(GeometryType geometryType)
 {
     switch (geometryType)
@@ -98,7 +109,8 @@ consteval std::string_view GetSqlQueryTemplate(GeometryType geometryType)
                 X({geometryColumn}),
                 Y({geometryColumn}),
                 {zCoord}
-                rowid AS id
+                {attributes}
+                {primaryKey} AS id
             FROM {tableName} AS t
             WHERE {mbrCondition};
         )SQL";
@@ -118,8 +130,9 @@ consteval std::string_view GetSqlQueryTemplate(GeometryType geometryType)
                 X(PointN({exteriorRing}({geometryColumn}), n)),
                 Y(PointN({exteriorRing}({geometryColumn}), n)),
                 {zCoord}
+                {attributes}
                 NumPoints({exteriorRing}({geometryColumn})) AS pointsCount,
-                rowid AS id
+                {primaryKey} AS id
             FROM {tableName} AS t
             CROSS JOIN nlist
             WHERE PointN({exteriorRing}({geometryColumn}), n) IS NOT NULL
@@ -132,7 +145,8 @@ consteval std::string_view GetSqlQueryTemplate(GeometryType geometryType)
                 X(e.geometry),
                 Y(e.geometry),
                 {zCoord}
-                t.rowid AS id,
+                {attributes}
+                t.{primaryKey} AS id,
                 NumGeometries(t.{geometryColumn}) as pointsCount
             FROM {tableName} AS t, ElementaryGeometries AS e 
             WHERE e.f_table_name = '{tableName}' 
@@ -145,7 +159,8 @@ consteval std::string_view GetSqlQueryTemplate(GeometryType geometryType)
         return R"SQL(
             WITH RECURSIVE elementary_geometries AS (
                 SELECT
-                    t.rowid AS id,
+                    t.{primaryKey} AS id,
+                    {attributes}
                     NumGeometries(t.{geometryColumn}) AS linesCount,
                     {exteriorRing}(e.geometry) AS elemGeometry
                 FROM {tableName} AS t, ElementaryGeometries AS e 
@@ -165,6 +180,7 @@ consteval std::string_view GetSqlQueryTemplate(GeometryType geometryType)
                 X(PointN(elemGeometry, n)),
                 Y(PointN(elemGeometry, n)),
                 {zCoord}
+                {attributes}
                 NumPoints(elemGeometry) AS pointsCount,
                 linesCount,
                 id
@@ -189,16 +205,37 @@ consteval std::string_view GetSqlQueryTemplate(GeometryType geometryType)
  * @param geometryColumn Name of the spatialite geometry column of the table
  * @return SQL query as std::string
  */
+
+/**
+ * @brief Get an sql query for obtaining geometries from the table
+ * 
+ * @tparam GeomType Type of the geometries @sa GeometryType.h
+ * @tparam Dim Dimension of the geometries (2D/3D)
+ * @param tableName Table which contains geometries
+ * @param primaryKey Primary key column name of the table
+ * @param geometryColumn Name of the spatialite geometry column of the table
+ * @param attributesInfo Additional attributes info
+ * @param spatialIndex Spatial index type to use
+ * @return SQL query as std::string
+ */
 template <GeometryType GeomType, Dimension Dim>
-std::string GetSqlQuery(const std::string& tableName, const std::string& geometryColumn, SpatialIndex spatialIndex)
+std::string GetSqlQuery(
+    const std::string& tableName, 
+    const std::string& primaryKey, 
+    const std::string& geometryColumn, 
+    const AttributesInfo& attributesInfo, 
+    SpatialIndex spatialIndex
+)
 {
     using namespace fmt::literals;
 
     return fmt::format(Detail::GetSqlQueryTemplate(GeomType), 
         "tableName"_a=tableName,
+        "primaryKey"_a=primaryKey,
         "geometryColumn"_a=geometryColumn,
         "exteriorRing"_a=Detail::GetExteriorRingFunc(GeomType),
         "zCoord"_a=(Dim == Dimension::D3 ? Detail::GetZCoord(geometryColumn, GeomType) : ""),
+        "attributes"_a=Detail::GetAttributesList(attributesInfo),
         "mbrCondition"_a=Detail::GetMbrCondition(tableName, geometryColumn, spatialIndex));
 }
 

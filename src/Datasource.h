@@ -20,7 +20,8 @@
 #pragma once
 
 #include "Database.h"
-#include "MapgetGeometry.h"
+#include "MapgetFeature.h"
+#include "AttributesInfo.h"
 
 #include <mapget/http-datasource/datasource-server.h>
 
@@ -38,6 +39,19 @@ public:
      *  With port=0, a random free port will be chosen.
      */
     Datasource(const std::filesystem::path& mapPath, const std::filesystem::path& jsonInfoPath, uint16_t port);
+
+    /**
+     * @brief Enable additional feature attributes. The attributes info will be loaded from the database
+     */
+    void EnableAttributes();
+
+    /**
+     * @brief Enable additional feature attributes using attributes info json
+     * 
+     * @param attributesInfoPath Path to a json file which contains info about additional feature attributes
+     */
+    void EnableAttributesWithInfoJson(const std::filesystem::path& attributesInfoPath);
+
     /**
      * @brief Run the datasource server
      */
@@ -46,6 +60,7 @@ public:
 private:
     [[nodiscard]] static mapget::DataSourceInfo LoadDataSourceInfoFromJson(const std::filesystem::path& jsonInfoPath);
     [[nodiscard]] static mapget::DataSourceInfo LoadDataSourceInfoFromDatabase(const Database& db);
+
     /**
      * @brief Fill the given tile with geometries
      * 
@@ -75,17 +90,20 @@ private:
             .xmax = tid.ne().x,
             .ymax = tid.ne().y
         };
-        auto geometries = m_db.GetGeometries<GeomType, Dim>(tableName, geometryColumn, mbr);
+        // it's much simpler to just create an empty info if not found, just 56 bytes per table
+        const auto& attributesInfo = m_attributesInfo[tableName];
+        auto geometries = m_db.GetGeometries<GeomType, Dim>(tableName, geometryColumn, attributesInfo, mbr);
         for (auto geometry : geometries)
         {
             auto feature = tile->newFeature(tableName, {{"id", geometry.GetId()}});
-            MapgetFeatureGeometryStorage geometryFabric{*feature};
+            MapgetFeature geometryFabric{*feature};
             geometry.AddTo(geometryFabric);
         }
     }
 private:
     Database m_db;
     mapget::DataSourceServer m_ds;
+    mutable TablesAttributesInfo m_attributesInfo; // mutable because empty entries can be added
     const uint16_t m_port = 0;
 };
 
