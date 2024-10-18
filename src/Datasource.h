@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Database.h"
+#include "GeometryType.h"
 #include "MapgetFeature.h"
 #include "AttributesInfo.h"
 
@@ -71,35 +72,18 @@ private:
     /**
      * @brief Create geometries on the tile
      * 
-     * @tparam GeomType Type of the geometries @sa GeometryType.h
-     * @tparam Dim Dimension of the geometries (2D/3D)
      * @param tile Tile to create geometries in
      * @param tableName Table which contains geometries
      * @param geometryColumn Name of the spatialite geometry column of the table
+     * @param geometryType Type of the geometries @sa GeometryType.h
+     * @param dimension Dimension of the geometries (2D/3D)
      */
-    template <GeometryType GeomType, Dimension Dim>
     void CreateGeometries(
         const mapget::TileFeatureLayer::Ptr& tile, 
         const std::string& tableName, 
-        const std::string& geometryColumn) const
-    {
-        const auto tid = tile->tileId();
-        const Mbr mbr{
-            .xmin = tid.sw().x,
-            .ymin = tid.sw().y,
-            .xmax = tid.ne().x,
-            .ymax = tid.ne().y
-        };
-        // it's much simpler to just create an empty info if not found, just 56 bytes per table
-        const auto& attributesInfo = m_attributesInfo[tableName];
-        auto geometries = m_db.GetGeometries<GeomType, Dim>(tableName, geometryColumn, attributesInfo, mbr);
-        for (auto geometry : geometries)
-        {
-            auto feature = tile->newFeature(tableName, {{"id", geometry.GetId()}});
-            MapgetFeature geometryFabric{*feature};
-            geometry.AddTo(geometryFabric);
-        }
-    }
+        const std::string& geometryColumn,
+        GeometryType geometryType,
+        Dimension dimension) const;
 private:
     Database m_db;
     mapget::DataSourceServer m_ds;

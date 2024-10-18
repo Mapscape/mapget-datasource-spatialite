@@ -71,8 +71,8 @@ TEST_F(SpatialiteDatabaseTest, TablesNamesAreReturned)
 TEST_F(SpatialiteDatabaseTest, EmptyViewDoesNotThrow)
 {
     const auto table = InitializeDbWithEmptyTable("POINT", SpatialIndex::None);
-    auto geometries = spatialiteDb->GetGeometries<GeometryType::Point, Dimension::D2>(
-        table.name, table.geometryColumn, emptyAttributesInfo, {0, 0, 0, 0});
+    auto geometries = spatialiteDb->GetGeometries(
+        table.name, table.geometryColumn, GeometryType::Point, Dimension::XY, emptyAttributesInfo, {0, 0, 0, 0});
 
     EXPECT_EQ(geometries.begin(), geometries.end());
 }

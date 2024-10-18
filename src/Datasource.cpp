@@ -20,6 +20,7 @@
 
 #include "Datasource.h"
 #include "AttributesInfo.h"
+#include "GeometryType.h"
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <nlohmann/json.hpp>
@@ -121,6 +122,22 @@ void Datasource::Run()
     return mapget::DataSourceInfo::fromJson(infoJson);
 }
 
+GeometryType GetGeometryType(int spatialiteType)
+{
+    int geometry = spatialiteType % 1'000;
+    if (geometry < static_cast<int>(GeometryType::Point) || geometry > static_cast<int>(GeometryType::MultiPolygon))
+        throw std::runtime_error{fmt::format("Unknown spatialite geometry type: {}", spatialiteType)};
+    return static_cast<GeometryType>(geometry);
+}
+
+Dimension GetDimension(int spatialiteType)
+{
+    int dimension = spatialiteType / 1'000;
+    if (dimension < static_cast<int>(Dimension::XY) || dimension > static_cast<int>(Dimension::XYZM))
+        throw std::runtime_error{fmt::format("Can't get dimension from spatialite geometry type: {}", spatialiteType)};
+    return static_cast<Dimension>(dimension);
+}
+
 void Datasource::Fill(const mapget::TileFeatureLayer::Ptr& tile) const
 {
     const auto layerInfo = tile->layerInfo();
@@ -128,60 +145,32 @@ void Datasource::Fill(const mapget::TileFeatureLayer::Ptr& tile) const
     {
         const auto& tableName = featureType.name_;
         auto [geomColumn, geomType] = m_db.GetGeometryColumnInfo(tableName);
-        switch (geomType) 
-        {
-        case GAIA_POINT:
-        case GAIA_POINTM:
-            CreateGeometries<GeometryType::Point, Dimension::D2>(tile, tableName, geomColumn);
-            break;
-        case GAIA_POINTZ:
-        case GAIA_POINTZM:
-            CreateGeometries<GeometryType::Point, Dimension::D3>(tile, tableName, geomColumn);
-            break;
-        case GAIA_LINESTRING:
-        case GAIA_LINESTRINGM:
-            CreateGeometries<GeometryType::Line, Dimension::D2>(tile, tableName, geomColumn);
-            break;
-        case GAIA_LINESTRINGZ:
-        case GAIA_LINESTRINGZM:
-            CreateGeometries<GeometryType::Line, Dimension::D3>(tile, tableName, geomColumn);
-            break;
-        case GAIA_POLYGON:
-        case GAIA_POLYGONM:
-            CreateGeometries<GeometryType::Polygon, Dimension::D2>(tile, tableName, geomColumn);
-            break;
-        case GAIA_POLYGONZ:
-        case GAIA_POLYGONZM:
-            CreateGeometries<GeometryType::Polygon, Dimension::D3>(tile, tableName, geomColumn);
-            break;
-            
-        case GAIA_MULTIPOINT:
-        case GAIA_MULTIPOINTM:
-            CreateGeometries<GeometryType::MultiPoint, Dimension::D2>(tile, tableName, geomColumn);
-            break;
-        case GAIA_MULTIPOINTZ:
-        case GAIA_MULTIPOINTZM:
-            CreateGeometries<GeometryType::MultiPoint, Dimension::D3>(tile, tableName, geomColumn);
-            break;
-        case GAIA_MULTILINESTRING:
-        case GAIA_MULTILINESTRINGM:
-            CreateGeometries<GeometryType::MultiLine, Dimension::D2>(tile, tableName, geomColumn);
-            break;
-        case GAIA_MULTILINESTRINGZ:
-        case GAIA_MULTILINESTRINGZM:
-            CreateGeometries<GeometryType::MultiLine, Dimension::D3>(tile, tableName, geomColumn);
-            break;
-        case GAIA_MULTIPOLYGON:
-        case GAIA_MULTIPOLYGONM:
-            CreateGeometries<GeometryType::MultiPolygon, Dimension::D2>(tile, tableName, geomColumn);
-            break;
-        case GAIA_MULTIPOLYGONZ:
-        case GAIA_MULTIPOLYGONZM:
-            CreateGeometries<GeometryType::MultiPolygon, Dimension::D3>(tile, tableName, geomColumn);
-            break;
-        default:
-            throw std::runtime_error{"Unknown spatialite geometry type"};
-        }
+        CreateGeometries(tile, tableName, geomColumn, GetGeometryType(geomType), GetDimension(geomType));
+    }
+}
+
+void Datasource::CreateGeometries(
+    const mapget::TileFeatureLayer::Ptr& tile, 
+    const std::string& tableName, 
+    const std::string& geometryColumn,
+    GeometryType geometryType,
+    Dimension dimension) const
+{
+    const auto tid = tile->tileId();
+    const Mbr mbr{
+        .xmin = tid.sw().x,
+        .ymin = tid.sw().y,
+        .xmax = tid.ne().x,
+        .ymax = tid.ne().y
+    };
+    // it's much simpler to just create an empty info if not found, just 56 bytes per table
+    const auto& attributesInfo = m_attributesInfo[tableName];
+    auto geometries = m_db.GetGeometries(tableName, geometryColumn, geometryType, dimension, attributesInfo, mbr);
+    for (auto geometry : geometries)
+    {
+        auto feature = tile->newFeature(tableName, {{"id", geometry.GetId()}});
+        MapgetFeature geometryFabric{*feature};
+        geometry.AddTo(geometryFabric);
     }
 }
 

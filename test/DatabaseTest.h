@@ -20,12 +20,14 @@
 
 #pragma once
 
+#include "GeometryType.h"
 #include "TestDbDriver.h"
 
 #include <Database.h>
 
 #include <gtest/gtest.h>
 #include <memory>
+#include <unordered_map>
 
 class SpatialiteDatabaseTest : public testing::Test
 {
@@ -65,11 +67,15 @@ public:
         spatialiteDb = std::make_unique<SpatialiteDatasource::Database>(testDb->GetPath());
     }
 
-    template <SpatialiteDatasource::GeometryType GeomType, SpatialiteDatasource::Dimension Dim, class L>
-    [[nodiscard]] auto GetGeometries(const Table<L>& table)
+    template <class L>
+    [[nodiscard]] auto GetGeometries(
+        SpatialiteDatasource::GeometryType geometryType, 
+        SpatialiteDatasource::Dimension dimension, 
+        const Table<L>& table
+    )
     {
-        return spatialiteDb->GetGeometries<GeomType, Dim>(
-            table.name, table.geometryColumn, emptyAttributesInfo, mbr);
+        return spatialiteDb->GetGeometries(
+            table.name, table.geometryColumn, geometryType, dimension, emptyAttributesInfo, mbr);
     }
 
     std::unique_ptr<SpatialiteDatasource::Database> spatialiteDb;
@@ -79,3 +85,28 @@ public:
 private:
     static std::unique_ptr<TestDbDriver> testDb;
 };
+
+inline std::tuple<SpatialiteDatasource::GeometryType, SpatialiteDatasource::Dimension, std::string> GetGeometryInfoFromGeometry(
+    const std::string& geometry)
+{
+    using SpatialiteDatasource::GeometryType;
+    using SpatialiteDatasource::Dimension;
+
+    auto spatialiteGeometryType = geometry.substr(0, geometry.find('('));
+    static const std::unordered_map<std::string, std::tuple<GeometryType, Dimension>> geometryTypes{
+        {"POINT", {GeometryType::Point, Dimension::XY}},
+        {"POINTZ", {GeometryType::Point, Dimension::XYZ}},
+        {"LINESTRING", {GeometryType::Line, Dimension::XY}},
+        {"LINESTRINGZ", {GeometryType::Line, Dimension::XYZ}},
+        {"POLYGON", {GeometryType::Polygon, Dimension::XY}},
+        {"POLYGONZ", {GeometryType::Polygon, Dimension::XYZ}},
+        {"MULTIPOINT", {GeometryType::MultiPoint, Dimension::XY}},
+        {"MULTIPOINTZ", {GeometryType::MultiPoint, Dimension::XYZ}},
+        {"MULTILINESTRING", {GeometryType::MultiLine, Dimension::XY}},
+        {"MULTILINESTRINGZ", {GeometryType::MultiLine, Dimension::XYZ}},
+        {"MULTIPOLYGON", {GeometryType::MultiPolygon, Dimension::XY}},
+        {"MULTIPOLYGONZ", {GeometryType::MultiPolygon, Dimension::XYZ}}
+    };
+    const auto [geometryType, dimension] = geometryTypes.at(spatialiteGeometryType);
+    return {geometryType, dimension, std::move(spatialiteGeometryType)};
+}

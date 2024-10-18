@@ -21,6 +21,7 @@
 #pragma once
 
 #include "GeometriesView.h"
+#include "GeometryType.h"
 #include "SqlStatements.h"
 #include "AttributesInfo.h"
 
@@ -86,35 +87,21 @@ public:
     /**
      * @brief Get geometries within MBR
      * 
-     * @tparam GeomType Type of the geometry @sa GeometryType.h
-     * @tparam Dim Dimension of the geometry (2D/3D)
      * @param tableName Name of the table that stores geometries
      * @param geometryColumn Name of the spatialite geometry column in the table
+     * @param geometryType Type of the geometry @sa GeometryType.h
+     * @param dimension Dimension of the geometry (2D/3D)
      * @param attributesInfo Geometries additional attributes info
      * @param mbr Minimum bounding rectangle
      * @return Geometry view that iterates over geometries
      */
-    template <GeometryType GeomType, Dimension Dim>
-    [[nodiscard]] auto GetGeometries(
+    [[nodiscard]] GeometriesView GetGeometries(
         const std::string& tableName, 
         const std::string& geometryColumn, 
+        GeometryType geometryType,
+        Dimension dimension,
         const AttributesInfo& attributesInfo,
-        const Mbr& mbr) const
-    {
-        SQLite::Statement stmt{m_db, GetSqlQuery<GeomType, Dim>(
-            tableName, 
-            m_primaryKeys.at(tableName), 
-            geometryColumn, 
-            attributesInfo, 
-            GetSpatialIndexType(tableName))
-        };
-        stmt.bind("@xMin", mbr.xmin);
-        stmt.bind("@yMin", mbr.ymin);
-        stmt.bind("@xMax", mbr.xmax);
-        stmt.bind("@yMax", mbr.ymax);
-        mapget::log().debug("Getting geometries with an SQL query: {}", stmt.getExpandedSQL());
-        return GeometriesView<GeomType, Dim>{std::move(stmt), attributesInfo};
-    }
+        const Mbr& mbr) const;
 private:
     [[nodiscard]] std::string GetPrimaryKeyColumnName(const std::string& tableName) const;
     [[nodiscard]] std::string GetGeometryColumnName(const std::string& tableName) const;
