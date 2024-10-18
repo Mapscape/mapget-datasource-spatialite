@@ -28,7 +28,7 @@ namespace SpatialiteDatasource {
 
 enum class ColumnType
 {
-    Int64, Double, String
+    Int64, Double, Text, Blob
 };
 
 ColumnType ColumnTypeFromSqlType(int sqlType);

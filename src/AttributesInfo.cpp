@@ -33,8 +33,10 @@ ColumnType ColumnTypeFromSqlType(int sqlType)
         return ColumnType::Int64;
     if (sqlType == SQLite::FLOAT)
         return ColumnType::Double;
-    if (sqlType == SQLite::TEXT || sqlType == SQLite::BLOB || sqlType == SQLite::Null)
-        return ColumnType::String;
+    if (sqlType == SQLite::TEXT)
+        return ColumnType::Text;
+    if (sqlType == SQLite::BLOB || sqlType == SQLite::Null)
+        return ColumnType::Blob;
     throw std::runtime_error{fmt::format("Unknown SQL column type: {}", sqlType)};
 }
 
@@ -45,8 +47,10 @@ ColumnType ParseColumnType(const std::string& type)
         return ColumnType::Int64;
     if (typeLower == "float")
         return ColumnType::Double;
-    if (typeLower == "text" || typeLower == "blob")
-        return ColumnType::String;
+    if (typeLower == "text")
+        return ColumnType::Text;
+    if (typeLower == "blob")
+        return ColumnType::Blob;
     throw std::runtime_error{fmt::format("Can't parse attributes json: invalid attribute type '{}'", type)};
 }
 
@@ -59,8 +63,10 @@ std::string_view ColumnTypeToString(ColumnType columnType)
         return "Int64"sv;
     case ColumnType::Double:
         return "Double"sv;
-    case ColumnType::String:
-        return "String"sv;
+    case ColumnType::Text:
+        return "Text"sv;
+    case ColumnType::Blob:
+        return "Blob"sv;
     default:
         throw std::runtime_error{fmt::format("Unknown column type: {}", static_cast<int>(columnType))};
     }

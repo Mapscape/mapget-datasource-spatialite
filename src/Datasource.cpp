@@ -51,7 +51,7 @@ void Datasource::EnableAttributes()
         attributesInfo = m_db.GetTableAttributes(table);
         for (const auto& attr : attributesInfo)
         {
-            logMessage += fmt::format("\n{}: {}", attr.name, ColumnTypeToString(attr.type));
+            logMessage += fmt::format("\n    {}: {}", attr.name, ColumnTypeToString(attr.type));
         }
     }
     mapget::log().info(logMessage);
