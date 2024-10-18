@@ -74,7 +74,8 @@ public:
                 id INT PRIMARY KEY, 
                 intAttribute INTEGER, 
                 doubleAttribute FLOAT, 
-                stringAttribute STRING);
+                stringAttribute STRING,
+                blobAttribute BLOB);
             )SQL"}.exec();
 
         Table table{"tbl", "geometry", [this] {
