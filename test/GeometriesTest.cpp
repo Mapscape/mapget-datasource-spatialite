@@ -24,7 +24,7 @@
 #include <gmock/gmock.h>
 
 #define CHECK_GEOMETRIES(table, type, dimension, ...)        \
-    auto geometries = GetGeometries<type, dimension>(table); \
+    auto geometries = GetGeometries(type, dimension, table); \
     FeatureMock featureMock;                                 \
     for (auto g : geometries)                                \
     {                                                        \
@@ -79,7 +79,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, Points2DAreCreated)
         "POINT(3 4)"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::Point, Dimension::D2, {{1, 2}}, {{3, 4}});
+    CHECK_GEOMETRIES(table, GeometryType::Point, Dimension::XY, {{1, 2}}, {{3, 4}});
 }
 
 TEST_P(SpatialiteDatabaseGeometriesTest, Points3DAreCreated)
@@ -89,7 +89,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, Points3DAreCreated)
         "POINTZ(4 5 6)"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::Point, Dimension::D3, {{1, 2, 3}}, {{4, 5, 6}});
+    CHECK_GEOMETRIES(table, GeometryType::Point, Dimension::XYZ, {{1, 2, 3}}, {{4, 5, 6}});
 }
 
 TEST_P(SpatialiteDatabaseGeometriesTest, Lines2DAreCreated)
@@ -99,7 +99,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, Lines2DAreCreated)
         "LINESTRING(9 1, 2 3)"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::Line, Dimension::D2, 
+    CHECK_GEOMETRIES(table, GeometryType::Line, Dimension::XY, 
         {{1, 2}, {3, 4}, {5, 6}, {7, 8}}, 
         {{9, 1}, {2, 3}}
     );
@@ -112,7 +112,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, Lines3DAreCreated)
         "LINESTRINGZ(3 4 5, 6 7 8)"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::Line, Dimension::D3, 
+    CHECK_GEOMETRIES(table, GeometryType::Line, Dimension::XYZ, 
         {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}, {10, 11, 12}}, 
         {{3, 4, 5}, {6, 7, 8}}
     );
@@ -125,7 +125,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, Polygons2DAreCreated)
         "POLYGON((7 8, 9 10, 11 12, 13 14, 7 8))"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::Polygon, Dimension::D2, 
+    CHECK_GEOMETRIES(table, GeometryType::Polygon, Dimension::XY, 
         {{1, 2}, {3, 4}, {5, 6}, {1, 2}}, 
         {{7, 8}, {9, 10}, {11, 12}, {13, 14}, {7, 8}}
     );
@@ -138,7 +138,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, Polygons3DAreCreated)
         "POLYGONZ((11 12 13, 14 15 16, 17 18 19, 1 2 3, 11 12 13))"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::Polygon, Dimension::D3, 
+    CHECK_GEOMETRIES(table, GeometryType::Polygon, Dimension::XYZ, 
         {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}, {1, 2, 3}}, 
         {{11, 12, 13}, {14, 15, 16}, {17, 18, 19}, {1, 2, 3}, {11, 12, 13}}
     );
@@ -151,7 +151,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, MultiPoints2DAreCreated)
         "MULTIPOINT((7 8))"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::MultiPoint, Dimension::D2, 
+    CHECK_GEOMETRIES(table, GeometryType::MultiPoint, Dimension::XY, 
         {{1, 2}}, 
         {{3, 4}}, 
         {{5, 6}}, 
@@ -166,7 +166,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, MultiPoints3DAreCreated)
         "MULTIPOINTZ((11 12 13))"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::MultiPoint, Dimension::D3, 
+    CHECK_GEOMETRIES(table, GeometryType::MultiPoint, Dimension::XYZ, 
         {{1, 2, 3}}, 
         {{4, 5, 6}}, 
         {{7, 8, 9}}, 
@@ -181,7 +181,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, MultiLines2DAreCreated)
         "MULTILINESTRING((13 14, 15 16))"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::MultiLine, Dimension::D2, 
+    CHECK_GEOMETRIES(table, GeometryType::MultiLine, Dimension::XY, 
         {{1, 2}, {3, 4}},
         {{5, 6}, {7, 8}}, 
         {{9, 1}, {2, 3}, {4, 5}},
@@ -196,7 +196,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, MultiLines3DAreCreated)
         "MULTILINESTRINGZ((13 14 8, 16 17 9))"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::MultiLine, Dimension::D3, 
+    CHECK_GEOMETRIES(table, GeometryType::MultiLine, Dimension::XYZ, 
         {{1, 2, 3}, {3, 4, 2}},
         {{5, 6, 3}, {7, 8, 4}}, 
         {{9, 1, 5}, {2, 3, 6}, {4, 5, 7}},
@@ -211,7 +211,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, MultiPolygons2DAreCreated)
         "MULTIPOLYGON(((17 18, 19 20, 1 2, 17 18)))"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::MultiPolygon, Dimension::D2, 
+    CHECK_GEOMETRIES(table, GeometryType::MultiPolygon, Dimension::XY, 
         {{1, 2}, {3, 4}, {5, 6}, {1, 2}}, 
         {{7, 8}, {9, 10}, {11, 12}, {13, 14}, {7, 8}},
         {{13, 14}, {15, 16}, {21, 22}, {13, 14}},
@@ -226,7 +226,7 @@ TEST_P(SpatialiteDatabaseGeometriesTest, MultiPolygons3DAreCreated)
         "MULTIPOLYGONZ(((17 18 5, 19 20 6, 1 2 7, 17 18 5)))"
     });
     
-    CHECK_GEOMETRIES(table, GeometryType::MultiPolygon, Dimension::D3, 
+    CHECK_GEOMETRIES(table, GeometryType::MultiPolygon, Dimension::XYZ, 
         {{1, 2, 3}, {3, 4, 1}, {5, 6, 2}, {1, 2, 3}}, 
         {{7, 8, 1}, {9, 10, 2}, {11, 12, 3}, {13, 14, 4}, {7, 8, 1}},
         {{13, 14, 1}, {15, 16, 2}, {21, 22, 3}, {13, 14, 1}},

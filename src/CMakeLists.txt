@@ -28,6 +28,7 @@ add_library(${PROJECT_NAME}-lib STATIC
     Database.h
     Database.cpp
     GeometriesView.h
+    GeometriesView.cpp
     GeometryType.h
     IFeature.h
     MapgetFeature.h

@@ -20,33 +20,20 @@
 
 #pragma once
 
+#include <spatialite.h>
+
+#include <memory>
+
 namespace SpatialiteDatasource {
 
-enum class Dimension
+struct GaiaGeomCollDeleter
 {
-    XY = 0,
-    XYZ,
-    XYM,
-    XYZM
+    void operator()(gaiaGeomColl* p) const
+    {
+        gaiaFreeGeomColl(p);
+    }
 };
 
-enum class GeometryType
-{
-    Point = 1,
-    Line,
-    Polygon,
-    
-    MultiPoint, 
-    MultiLine, 
-    MultiPolygon
-};
-
-enum class SpatialIndex
-{
-    None,
-    RTree,
-    MbrCache,
-    NavInfo
-};
+using UniqueGaiaGeomCollPtr = std::unique_ptr<gaiaGeomColl, GaiaGeomCollDeleter>;
 
 } // namespace SpatialiteDatasource

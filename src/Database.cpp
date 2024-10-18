@@ -148,6 +148,29 @@ Database::~Database()
     return info;
 }
 
+[[nodiscard]] GeometriesView Database::GetGeometries(
+    const std::string& tableName, 
+    const std::string& geometryColumn,
+    GeometryType geometryType,
+    Dimension dimension,
+    const AttributesInfo& attributesInfo,
+    const Mbr& mbr) const
+{
+    SQLite::Statement stmt{m_db, GetSqlQuery(
+        tableName, 
+        m_primaryKeys.at(tableName), 
+        geometryColumn, 
+        attributesInfo, 
+        GetSpatialIndexType(tableName))
+    };
+    stmt.bind("@xMin", mbr.xmin);
+    stmt.bind("@yMin", mbr.ymin);
+    stmt.bind("@xMax", mbr.xmax);
+    stmt.bind("@yMax", mbr.ymax);
+    mapget::log().debug("Getting geometries with an SQL query: {}", stmt.getExpandedSQL());
+    return GeometriesView{geometryType, dimension, std::move(stmt), attributesInfo};
+}
+
 [[nodiscard]] std::string Database::GetPrimaryKeyColumnName(const std::string& tableName) const
 {
     SQLite::Statement stmt{m_db, fmt::format(R"SQL(
