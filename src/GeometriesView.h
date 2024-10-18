@@ -27,6 +27,7 @@
 #include <SQLiteCpp/Statement.h>
 #include <SQLiteCpp/Column.h>
 
+#include <sqlite3.h>
 #include <spatialite.h>
 
 namespace SpatialiteDatasource {
