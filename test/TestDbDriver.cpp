@@ -45,10 +45,10 @@ TestDbDriver::~TestDbDriver()
 
 void TestDbDriver::Insert(const std::vector<std::string>& geometries, int srid)
 {
-    std::string stmtStr = "INSERT INTO tbl (id, geometry, intAttribute, doubleAttribute, stringAttribute) VALUES";
+    std::string stmtStr = "INSERT INTO tbl (id, geometry, intAttribute, doubleAttribute, stringAttribute, blobAttribute) VALUES";
     for (size_t i = 0; i < geometries.size(); ++i)
     {
-        stmtStr += fmt::format(" ({}, GeomFromText('{}', @srid), 42, 6.66, 'value'),", i + 1, geometries[i]);
+        stmtStr += fmt::format(" ({}, GeomFromText('{}', @srid), 42, 6.66, 'value', X'deadbeef'),", i + 1, geometries[i]);
     }
     stmtStr.back() = ';';
 

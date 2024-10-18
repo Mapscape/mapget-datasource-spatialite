@@ -70,22 +70,7 @@ struct FeatureMock : SpatialiteDatasource::IFeature
     void AddAttribute(std::string_view name, std::string_view value) override
     {
         ++attributesCount;
-        stringAttribute.name = name;
-        stringAttribute.value = value;
-    }
-
-    void CheckAttributes() const
-    {
-        EXPECT_EQ(attributesCount, 3);
-
-        EXPECT_EQ(intAttribute.name, "intAttribute");
-        EXPECT_EQ(intAttribute.value, 42);
-
-        EXPECT_EQ(doubleAttribute.name, "doubleAttribute");
-        EXPECT_EQ(doubleAttribute.value, 6.66);
-
-        EXPECT_EQ(stringAttribute.name, "stringAttribute");
-        EXPECT_EQ(stringAttribute.value, "value");
+        stringAttributes.emplace_back(std::string{name}, std::string{value});
     }
 
     Geometries geometries;
@@ -95,5 +80,5 @@ struct FeatureMock : SpatialiteDatasource::IFeature
     size_t attributesCount = 0;
     Attribute<int64_t> intAttribute;
     Attribute<double> doubleAttribute;
-    Attribute<std::string> stringAttribute;
+    std::vector<Attribute<std::string>> stringAttributes;
 };

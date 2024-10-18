@@ -60,7 +60,8 @@ TEST_P(SpatialiteDatabaseAttributesTest, Attributes)
     SpatialiteDatasource::AttributesInfo attributesInfo{
         {"intAttribute", ColumnType::Int64},
         {"doubleAttribute", ColumnType::Double},
-        {"stringAttribute", ColumnType::String}
+        {"stringAttribute", ColumnType::Text},
+        {"blobAttribute", ColumnType::Blob}
     };
 
     auto geometries = spatialiteDb->GetGeometries(
@@ -75,7 +76,7 @@ TEST_P(SpatialiteDatabaseAttributesTest, Attributes)
     {
         g.AddTo(featureMock);
     }
-    EXPECT_EQ(featureMock.attributesCount, 3);
+    EXPECT_EQ(featureMock.attributesCount, 4);
 
     EXPECT_EQ(featureMock.intAttribute.name, "intAttribute");
     EXPECT_EQ(featureMock.intAttribute.value, 42);
@@ -83,6 +84,11 @@ TEST_P(SpatialiteDatabaseAttributesTest, Attributes)
     EXPECT_EQ(featureMock.doubleAttribute.name, "doubleAttribute");
     EXPECT_EQ(featureMock.doubleAttribute.value, 6.66);
 
-    EXPECT_EQ(featureMock.stringAttribute.name, "stringAttribute");
-    EXPECT_EQ(featureMock.stringAttribute.value, "value");
+    ASSERT_EQ(featureMock.stringAttributes.size(), 2);
+
+    EXPECT_EQ(featureMock.stringAttributes[0].name, "stringAttribute");
+    EXPECT_EQ(featureMock.stringAttributes[0].value, "value");
+
+    EXPECT_EQ(featureMock.stringAttributes[1].name, "blobAttribute");
+    EXPECT_EQ(featureMock.stringAttributes[1].value, "DEADBEEF");
 }

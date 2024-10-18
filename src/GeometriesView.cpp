@@ -22,12 +22,25 @@
 
 #include "UniqueGaiaGeomCollPtr.h"
 
+#include <boost/algorithm/hex.hpp>
+#include <cstdint>
+#include <iterator>
+
 namespace SpatialiteDatasource {
 
 static UniqueGaiaGeomCollPtr GetGaiaPtr(const SQLite::Statement& stmt)
 {
     const auto geomColumn = stmt.getColumn("geometry");
     return UniqueGaiaGeomCollPtr{gaiaFromSpatiaLiteBlobWkb(static_cast<const uint8_t*>(geomColumn.getBlob()), geomColumn.size())};
+}
+
+static std::string BlobToHex(const void* ptr, int size)
+{
+    std::string hex;
+    hex.reserve(size * 2);
+    const auto* blob = static_cast<const uint8_t*>(ptr);
+    boost::algorithm::hex(blob, blob + size, std::back_inserter(hex));
+    return hex;
 }
 
 Geometry::Geometry(
@@ -89,8 +102,11 @@ void Geometry::AddAttributesTo(IFeature& feature)
         case ColumnType::Double:
             feature.AddAttribute(name, value.getDouble());
             break;
-        case ColumnType::String:
+        case ColumnType::Text:
             feature.AddAttribute(name, value.getString());
+            break;
+        case ColumnType::Blob:
+            feature.AddAttribute(name, BlobToHex(value.getBlob(), value.size()));
             break;
         }
     }
