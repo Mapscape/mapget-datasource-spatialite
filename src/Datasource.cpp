@@ -74,7 +74,7 @@ void Datasource::EnableAttributesWithInfoJson(const std::filesystem::path& attri
 
 void Datasource::Run()
 {
-    m_ds.onTileRequest(
+    m_ds.onTileFeatureRequest(
         [this](auto&& tile)
         {
             try 
