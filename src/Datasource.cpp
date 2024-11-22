@@ -21,55 +21,86 @@
 #include "Datasource.h"
 #include "AttributesInfo.h"
 #include "GeometryType.h"
+#include "MapgetFeature.h"
 
+#include <fmt/ranges.h>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <nlohmann/json.hpp>
 #include <mapget/log.h>
 #include <spatialite/gg_const.h>
 
 #include <filesystem>
-#include <fstream>
 #include <stdexcept>
+#include <ranges>
 
 namespace SpatialiteDatasource {
 
-Datasource::Datasource(const std::filesystem::path& mapPath, const std::filesystem::path& jsonInfoPath, uint16_t port)
+Datasource::Datasource(const std::filesystem::path& mapPath, const nlohmann::json& config, uint16_t port, UseAttributes useAttributes)
     : m_db{mapPath}
-    , m_ds{jsonInfoPath.empty() ? LoadDataSourceInfoFromDatabase(m_db) : LoadDataSourceInfoFromJson(jsonInfoPath)}
+    , m_ds{config.contains("datasourceInfo") ? mapget::DataSourceInfo::fromJson(config.at("datasourceInfo"))
+                                             : LoadDataSourceInfoFromDatabase(m_db)}
     , m_port{port}
 {
+    if (useAttributes == UseAttributes::Yes)
+{
+        const auto attributesInfo = config.find("attributesInfo");
+        LoadAttributes(attributesInfo != config.end() ? *attributesInfo : nlohmann::json::object());
+    }
 }
 
-void Datasource::EnableAttributes()
+static void LogTableAttributes(const TablesAttributesInfo& info)
 {
-    const auto tables = m_db.GetTablesNames();
-    std::string logMessage = "Datasource info read from the database:";
-    for (const auto& table : tables)
+    std::string log = "Loaded attributes config:";
+    constexpr auto Indent = 2;
+    for (const auto& [table, attributesInfo] : info)
     {
-        logMessage += fmt::format("\n{}:", table);
-        auto& attributesInfo = m_attributesInfo[table];
-        attributesInfo = m_db.GetTableAttributes(table);
-        for (const auto& attr : attributesInfo)
+        log += fmt::format("\n{0:{1}}{2}:", "", Indent, table);
+        for (const auto& [attribute, attributeInfo] : attributesInfo)
         {
-            logMessage += fmt::format("\n    {}: {}", attr.name, ColumnTypeToString(attr.type));
+            log += fmt::format("\n{0:{1}}{2}({3})", "", Indent * 2, attribute, ColumnTypeToString(attributeInfo.type));
+            if (attributeInfo.relation.has_value())
+            {
+                const auto& relation = attributeInfo.relation.value();
+                log += fmt::format(":\n{0:{1}}columns: {2}\n{0:{1}}matchCondition: {3}\n{0:{1}}delimiter: '{4}'", 
+                    "", Indent * 3, 
+                    fmt::join(relation.columns, ", "),
+                    relation.matchCondition,
+                    relation.delimiter);
+            }
         }
     }
-    mapget::log().info(logMessage);
+    mapget::log().info(log);
 }
-void Datasource::EnableAttributesWithInfoJson(const std::filesystem::path& attributesInfoPath)
+
+void Datasource::LoadAttributes(const nlohmann::json& attributesConfig)
 {
-    mapget::log().info("Reading attributes info from {}", attributesInfoPath.string());
-    std::ifstream file{attributesInfoPath};
-    nlohmann::json json;
-    file >> json;
-    for (const auto& [table, attributes] : json.items())
+    const auto getLayerAndTable = [](const auto& layer) {
+        return std::make_pair(std::cref(layer.first), boost::to_lower_copy(layer.second->featureTypes_[0].name_));
+    };
+    const auto layers = m_ds.info().layers_ | std::views::transform(getLayerAndTable);
+
+    for (const auto&& [layer, table] : layers)
     {
-        const auto tableName = boost::to_lower_copy(table);
-        for (const auto& [name, type] : attributes.items())
+        auto& attributesInfo = m_attributesInfo[table];
+        const auto layerInfo = attributesConfig.find(layer);
+        if (layerInfo != attributesConfig.end())
+    {
+            const auto getFromDbFlag = layerInfo->value("getRemainingAttributesFromDb", true);
+            if (getFromDbFlag)
+            {
+                attributesInfo = m_db.GetTableAttributes(table);
+            }
+            for (const auto& [attributeName, attributeDescription] : layerInfo->at("attributes").items())
         {
-            m_attributesInfo[tableName].emplace_back(name, ParseColumnType(type));
+                attributesInfo[attributeName] = ParseAttributeInfo(attributeDescription);
+            }
+        }
+        else
+        {
+            attributesInfo = m_db.GetTableAttributes(table);
         }
     }
+    LogTableAttributes(m_attributesInfo);
 }
 
 void Datasource::Run()
@@ -90,15 +121,6 @@ void Datasource::Run()
     m_ds.go("0.0.0.0", m_port);
     mapget::log().info("Running on port {}...", m_ds.port());
     m_ds.waitForSignal();
-}
-
-[[nodiscard]] mapget::DataSourceInfo Datasource::LoadDataSourceInfoFromJson(const std::filesystem::path& jsonInfoPath)
-{
-    mapget::log().info("Reading info from {}", jsonInfoPath.string());
-    std::ifstream i{jsonInfoPath};
-    nlohmann::json j;
-    i >> j;
-    return mapget::DataSourceInfo::fromJson(j);
 }
 
 [[nodiscard]] mapget::DataSourceInfo Datasource::LoadDataSourceInfoFromDatabase(const Database& db)
@@ -122,7 +144,50 @@ void Datasource::Run()
     return mapget::DataSourceInfo::fromJson(infoJson);
 }
 
-GeometryType GetGeometryType(int spatialiteType)
+[[nodiscard]] AttributeInfo Datasource::ParseAttributeInfo(const nlohmann::json& attributeDescription) const
+{
+    AttributeInfo attribute;
+    std::optional<ColumnType> type;
+    const auto typeIter = attributeDescription.find("type");
+    if (typeIter != attributeDescription.end())
+    {
+        type = ParseColumnType(*typeIter);
+    }
+
+    const auto relationIter = attributeDescription.find("relation");
+    if (relationIter != attributeDescription.end())
+    {
+        auto& relation = attribute.relation.emplace();
+        relation.delimiter = relationIter->value("delimiter", "|");;
+        relation.matchCondition = relationIter->at("matchCondition");
+        const auto& relatedColumns = relationIter->at("relatedColumns");
+        if (relatedColumns.size() == 1)
+        {
+            std::string columnName = relatedColumns[0];
+            auto tableName = columnName.substr(0, columnName.find('.'));
+            if (!type.has_value())
+            {
+                type = m_db.GetColumnType(tableName, columnName);
+            }
+            relation.columns.emplace_back(std::move(columnName));
+        }
+        else 
+        {
+            if (!type.has_value())
+            {
+                type = ColumnType::Text;
+            }
+            for (std::string column : relatedColumns)
+            {
+                relation.columns.emplace_back(std::move(column));
+            }
+        }
+    }
+    attribute.type = type.value();
+    return attribute;
+}
+
+static GeometryType GetGeometryType(int spatialiteType)
 {
     int geometry = spatialiteType % 1'000;
     if (geometry < static_cast<int>(GeometryType::Point) || geometry > static_cast<int>(GeometryType::MultiPolygon))
@@ -130,7 +195,7 @@ GeometryType GetGeometryType(int spatialiteType)
     return static_cast<GeometryType>(geometry);
 }
 
-Dimension GetDimension(int spatialiteType)
+static Dimension GetDimension(int spatialiteType)
 {
     int dimension = spatialiteType / 1'000;
     if (dimension < static_cast<int>(Dimension::XY) || dimension > static_cast<int>(Dimension::XYZM))

@@ -30,7 +30,7 @@ namespace SpatialiteDatasource {
 
 static UniqueGaiaGeomCollPtr GetGaiaPtr(const SQLite::Statement& stmt)
 {
-    const auto geomColumn = stmt.getColumn("geometry");
+    const auto geomColumn = stmt.getColumn("__geometry");
     return UniqueGaiaGeomCollPtr{gaiaFromSpatiaLiteBlobWkb(static_cast<const uint8_t*>(geomColumn.getBlob()), geomColumn.size())};
 }
 
@@ -46,7 +46,7 @@ static std::string BlobToHex(const void* ptr, int size)
 Geometry::Geometry(
     GeometryType geometryType, 
     Dimension dimension,
-    SQLite::Statement& stmt,
+    const SQLite::Statement& stmt,
     const AttributesInfo& attributes
 ) noexcept 
     : m_geometryType{geometryType}
@@ -57,7 +57,7 @@ Geometry::Geometry(
 
 [[nodiscard]] int Geometry::GetId() const
 {
-    return m_stmt.getColumn("id");
+    return m_stmt.getColumn("__id");
 }
 
 void Geometry::AddTo(IFeature& feature)
@@ -86,15 +86,14 @@ void Geometry::AddTo(IFeature& feature)
         AddMultiPolygonTo(geomPtr->FirstPolygon, feature);
         break;
     }
-    m_stmt.executeStep();
 }
 
 void Geometry::AddAttributesTo(IFeature& feature)
 {
-    for (const auto& [name, type] : m_attributes)
+    for (const auto& [name, info] : m_attributes)
     {
         const auto value = m_stmt.getColumn(name.c_str());
-        switch (type)
+        switch (info.type)
         {
         case ColumnType::Int64:
             feature.AddAttribute(name, value.getInt64());
@@ -173,7 +172,7 @@ GeometryIterator::GeometryIterator(
 
 GeometryIterator& GeometryIterator::operator++() noexcept
 {
-    if (m_stmt->isDone())
+    if (!m_stmt->executeStep())
         m_stmt = nullptr;
     return *this;
 }

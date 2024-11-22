@@ -138,14 +138,28 @@ Database::~Database()
         for (int i = 0; i < stmt.getColumnCount(); ++i)
         {
             const auto column = stmt.getColumn(i);
-            std::string name = column.getName();
+            const std::string name = column.getName();
             // skip id and geometry
             if (boost::iequals(name, pkNameIter->second) || boost::iequals(name, geometryColumn))
                 continue;
-            info.emplace_back(std::move(name), ColumnTypeFromSqlType(column.getType()));
+            info[name] = {.type = ColumnTypeFromSqlType(column.getType())};
         }
     }
     return info;
+}
+
+[[nodiscard]] ColumnType Database::GetColumnType(const std::string& tableName, const std::string& columnName) const
+{
+    SQLite::Statement stmt{m_db, fmt::format(R"SQL(
+        SELECT {} FROM {} LIMIT 1;
+    )SQL", columnName, tableName)};
+    if (!stmt.executeStep())
+    {
+        mapget::log().error("Failed to detect column type of '{}' from table '{}'. Falling back with blob type",
+                            columnName, tableName);
+        return ColumnType::Blob;
+    }
+    return ColumnTypeFromSqlType(stmt.getColumn(0).getType());
 }
 
 [[nodiscard]] GeometriesView Database::GetGeometries(

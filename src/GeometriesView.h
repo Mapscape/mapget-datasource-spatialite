@@ -44,7 +44,7 @@ public:
     Geometry(
         GeometryType geometryType, 
         Dimension dimension,
-        SQLite::Statement& stmt,
+        const SQLite::Statement& stmt,
         const AttributesInfo& attributes
     ) noexcept;
 
@@ -99,7 +99,7 @@ private:
 private:
     const GeometryType m_geometryType;
     const Dimension m_dimension;
-    SQLite::Statement& m_stmt;
+    const SQLite::Statement& m_stmt;
     const AttributesInfo& m_attributes;
 };
 

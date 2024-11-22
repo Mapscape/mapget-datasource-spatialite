@@ -85,6 +85,14 @@ public:
     [[nodiscard]] AttributesInfo GetTableAttributes(const std::string& tableName) const;
 
     /**
+     * @brief Get the type of the column
+     * 
+     * @param tableName Table name
+     * @param columnName Column name (full name with the table or short name)
+     */
+    [[nodiscard]] ColumnType GetColumnType(const std::string& tableName, const std::string& columnName) const;
+
+    /**
      * @brief Get geometries within MBR
      * 
      * @param tableName Name of the table that stores geometries

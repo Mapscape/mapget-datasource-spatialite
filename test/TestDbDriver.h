@@ -20,42 +20,12 @@
 
 #pragma once
 
-#include <GeometryType.h>
+#include "Table.h"
+
 #include <SQLiteCpp/Database.h>
-#include <fmt/format.h>
 
 #include <filesystem>
-#include <stdexcept>
 #include <vector>
-
-static constexpr int Wgs84Srid = 4326;
-
-template <class Deleter>
-class Table
-{
-public:
-    Table(
-        std::string name, 
-        std::string geometryColumn, 
-        Deleter&& deleter
-    ) 
-        : name{std::move(name)}
-        , geometryColumn{std::move(geometryColumn)}
-        , m_deleter{std::move(deleter)} 
-    {}
-
-    ~Table()
-    {
-        m_deleter();
-    }
-
-public:
-    std::string name;
-    std::string geometryColumn;
-
-private:
-    Deleter m_deleter;
-};
 
 /**
  * @brief Class for creating a spatialite database
@@ -64,56 +34,14 @@ class TestDbDriver
 {
 public:
     TestDbDriver();
-
     ~TestDbDriver();
 
-    auto CreateTable(const std::string& geometry, SpatialiteDatasource::SpatialIndex spatialIndex, int srid = Wgs84Srid)
-    {
-        SQLite::Statement{m_db, R"SQL(
-            CREATE TABLE tbl (
-                id INT PRIMARY KEY, 
-                intAttribute INTEGER, 
-                doubleAttribute FLOAT, 
-                stringAttribute STRING,
-                blobAttribute BLOB);
-            )SQL"}.exec();
-
-        Table table{"tbl", "geometry", [this] {
-                SQLite::Statement{m_db, "SELECT DisableSpatialIndex('tbl', 'geometry');"}.executeStep();
-                RemoveNavInfoIndex();
-                SQLite::Statement{m_db, "SELECT DiscardGeometryColumn('tbl', 'geometry');"}.executeStep();
-                SQLite::Statement{m_db, "DROP TABLE tbl;"}.exec();
-        }};
-
-        AddGeometryColumn(geometry, srid);
-        CreateSpatialIndex(spatialIndex, geometry);
-
-        return table;
-    }
-
-    void Insert(const std::vector<std::string>& geometries, int srid = Wgs84Srid);
-
-    auto CreateTableWithGeometries(
-        const std::string& geometry, 
-        SpatialiteDatasource::SpatialIndex spatialIndex,
-        const std::vector<std::string>& geometries)
-    {
-        auto table = CreateTable(geometry, spatialIndex);
-        Insert(geometries);
-        return table;
-    }
-
+    [[nodiscard]] Table CreateTable(std::string_view tableName, const std::vector<Column>& columns);
     [[nodiscard]] const std::filesystem::path& GetPath() const noexcept;
 
 private:
-    void AddGeometryColumn(const std::string& geometry, int srid);
-    void CreateSpatialIndex(
-        SpatialiteDatasource::SpatialIndex spatialIndex, 
-        const std::string& geometry);
-
     void InitNavInfoMetaData();
-    void CreateNavInfoIndex(const std::string& geometry);
-    void RemoveNavInfoIndex();
+
 private:
     const std::filesystem::path m_dbPath;
     SQLite::Database m_db;

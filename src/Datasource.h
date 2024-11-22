@@ -21,12 +21,17 @@
 
 #include "Database.h"
 #include "GeometryType.h"
-#include "MapgetFeature.h"
 #include "AttributesInfo.h"
 
 #include <mapget/http-datasource/datasource-server.h>
 
 namespace SpatialiteDatasource {
+
+enum class UseAttributes
+{
+    No,
+    Yes
+};
 
 class Datasource
 {
@@ -35,23 +40,12 @@ public:
      * @brief Construct a new Datasource object
      * 
      * @param mapPath Path to a spatialite database
-     * @param jsonInfoPath Path to a json file which contains datasource info
+     * @param config Parsed json config as `nlohmann::json` object
      * @param port Port which the HTTP server shall bind to.
      *  With port=0, a random free port will be chosen.
+     * @param useAttributes Whether to add attributes to features or not
      */
-    Datasource(const std::filesystem::path& mapPath, const std::filesystem::path& jsonInfoPath, uint16_t port);
-
-    /**
-     * @brief Enable additional feature attributes. The attributes info will be loaded from the database
-     */
-    void EnableAttributes();
-
-    /**
-     * @brief Enable additional feature attributes using attributes info json
-     * 
-     * @param attributesInfoPath Path to a json file which contains info about additional feature attributes
-     */
-    void EnableAttributesWithInfoJson(const std::filesystem::path& attributesInfoPath);
+    Datasource(const std::filesystem::path& mapPath, const nlohmann::json& config, uint16_t port, UseAttributes useAttributes);
 
     /**
      * @brief Run the datasource server
@@ -59,8 +53,10 @@ public:
     void Run();
 
 private:
-    [[nodiscard]] static mapget::DataSourceInfo LoadDataSourceInfoFromJson(const std::filesystem::path& jsonInfoPath);
     [[nodiscard]] static mapget::DataSourceInfo LoadDataSourceInfoFromDatabase(const Database& db);
+
+    void LoadAttributes(const nlohmann::json& attributesConfig);
+    [[nodiscard]] AttributeInfo ParseAttributeInfo(const nlohmann::json& attributeDescription) const;
 
     /**
      * @brief Fill the given tile with geometries

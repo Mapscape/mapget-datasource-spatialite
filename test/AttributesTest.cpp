@@ -19,14 +19,22 @@
 // SOFTWARE.
 
 #include "AttributesInfo.h"
-#include "DatabaseTest.h"
+#include "DatabaseTestFixture.h"
 #include "FeatureMock.h"
 #include "GeometryType.h"
 
 using SpatialiteDatasource::ColumnType;
 
+void AddGeometriesToFeature(FeatureMock& feature, auto& geometries)
+{
+    for (auto g : geometries)
+    {
+        g.AddTo(feature);
+    }
+}
+
 class SpatialiteDatabaseAttributesTest 
-    : public SpatialiteDatabaseTest
+    : public DatabaseTestFixture
     , public testing::WithParamInterface<std::string>{};
 
 INSTANTIATE_TEST_SUITE_P(Database, SpatialiteDatabaseAttributesTest, testing::Values(
@@ -48,47 +56,134 @@ INSTANTIATE_TEST_SUITE_P(Database, SpatialiteDatabaseAttributesTest, testing::Va
     }
 );
 
-TEST_P(SpatialiteDatabaseAttributesTest, Attributes)
+TEST_P(SpatialiteDatabaseAttributesTest, AttributesAreAddedToFeature)
 {
     const auto& geometry = GetParam();
     const auto [geometryType, dimension, spatialiteType] = GetGeometryInfoFromGeometry(geometry);
-    const auto table = InitializeDbWithGeometries(
-        spatialiteType, 
-        SpatialiteDatasource::SpatialIndex::None, 
-        {geometry}
-    );
+    auto table = CreateTable("table_with_attributes", {
+        {"intAttribute", "INTEGER"},
+        {"doubleAttribute", "FLOAT"},
+        {"stringAttribute", "STRING"},
+        {"blobAttribute", "BLOB"},
+    });
+    table.AddGeometryColumn("geometry", spatialiteType);
+    table.Insert(42, 6.66, "value", Binary{"DEADBEEF"}, Geometry{geometry});
+    InitializeDb();
+
     SpatialiteDatasource::AttributesInfo attributesInfo{
-        {"intAttribute", ColumnType::Int64},
-        {"doubleAttribute", ColumnType::Double},
-        {"stringAttribute", ColumnType::Text},
-        {"blobAttribute", ColumnType::Blob}
+        {"intAttribute", {ColumnType::Int64}},
+        {"doubleAttribute", {ColumnType::Double}},
+        {"stringAttribute", {ColumnType::Text}},
+        {"blobAttribute", {ColumnType::Blob}}
     };
 
     auto geometries = spatialiteDb->GetGeometries(
         table.name,
-        table.geometryColumn,
+        table.GetGeometryColumnName(),
         geometryType,
         dimension,
         attributesInfo,
         mbr);
+
     FeatureMock featureMock;
-    for (auto g : geometries)
     {
-        g.AddTo(featureMock);
+        using testing::TypedEq;
+        EXPECT_CALL(featureMock, AddAttribute("intAttribute", TypedEq<int64_t>(42))).Times(1);
+        EXPECT_CALL(featureMock, AddAttribute("doubleAttribute", TypedEq<double>(6.66))).Times(1);
+        EXPECT_CALL(featureMock, AddAttribute("stringAttribute", TypedEq<std::string_view>("value"))).Times(1);
+        EXPECT_CALL(featureMock, AddAttribute("blobAttribute", TypedEq<std::string_view>("DEADBEEF"))).Times(1);
     }
-    EXPECT_EQ(featureMock.attributesCount, 4);
 
-    EXPECT_EQ(featureMock.intAttribute.name, "intAttribute");
-    EXPECT_EQ(featureMock.intAttribute.value, 42);
+    AddGeometriesToFeature(featureMock, geometries);
+}
 
-    EXPECT_EQ(featureMock.doubleAttribute.name, "doubleAttribute");
-    EXPECT_EQ(featureMock.doubleAttribute.value, 6.66);
+class SpatialiteDatabaseAttributesRelationsTest : public DatabaseTestFixture
+{
+public:
+    Table CreateGeometryTable()
+    {
+        auto table = CreateTable("geometries_table", {{"myEnum", "INTEGER"}});
+        table.AddGeometryColumn("geometry", "POINT");
+        table.Insert(42, Geometry{"POINT(1 1)"});
+        return table;
+    }
 
-    ASSERT_EQ(featureMock.stringAttributes.size(), 2);
+    auto GetGeometries(const Table& geometryTable, const SpatialiteDatasource::AttributesInfo& attributesInfo)
+    {
+        return spatialiteDb->GetGeometries(
+        geometryTable.name,
+        geometryTable.GetGeometryColumnName(),
+        SpatialiteDatasource::GeometryType::Point,
+        SpatialiteDatasource::Dimension::XY,
+        attributesInfo,
+        mbr);
+    }
+};
 
-    EXPECT_EQ(featureMock.stringAttributes[0].name, "stringAttribute");
-    EXPECT_EQ(featureMock.stringAttributes[0].value, "value");
+TEST_F(SpatialiteDatabaseAttributesRelationsTest, SingleColumnRelatedAttributeIsAddedToFeature)
+{
+    auto geometryTable = CreateGeometryTable();
+    auto relatedTable = CreateTable("related_table", {{"meaningfulNumber", "INTEGER"}, {"value", "INTEGER"}});
+    relatedTable.Insert(666, 42);
+    InitializeDb();
 
-    EXPECT_EQ(featureMock.stringAttributes[1].name, "blobAttribute");
-    EXPECT_EQ(featureMock.stringAttributes[1].value, "DEADBEEF");
+    SpatialiteDatasource::AttributesInfo attributesInfo{
+        {"attribute",
+         {ColumnType::Int64,
+          SpatialiteDatasource::Relation{
+              .columns = {"related_table.meaningfulNumber"},
+              .delimiter = ";",
+              .matchCondition = "layerTable.myEnum == related_table.value"}}},
+    };
+    auto geometries = GetGeometries(geometryTable, attributesInfo);
+
+    FeatureMock featureMock;
+    EXPECT_CALL(featureMock, AddAttribute("attribute", testing::TypedEq<int64_t>(666))).Times(1);
+    AddGeometriesToFeature(featureMock, geometries);
+}
+
+TEST_F(SpatialiteDatabaseAttributesRelationsTest, MultiColumnSingleTableRelatedAttributeIsAddedToFeature)
+{
+    auto geometryTable = CreateGeometryTable();
+    auto relatedTable = CreateTable("related_table", {{"meaningfulNumber", "INTEGER"}, {"meaningfulString", "STRING"}, {"value", "INTEGER"}});
+    relatedTable.Insert(666, "spasibo", 42);
+    InitializeDb();
+
+    SpatialiteDatasource::AttributesInfo attributesInfo{
+        {"attribute",
+         {ColumnType::Text,
+          SpatialiteDatasource::Relation{
+              .columns = {"related_table.meaningfulString", "related_table.meaningfulNumber"},
+              .delimiter = " - ",
+              .matchCondition = "layerTable.myEnum == related_table.value"}}},
+    };
+    auto geometries = GetGeometries(geometryTable, attributesInfo);
+
+    FeatureMock featureMock;
+    EXPECT_CALL(featureMock, AddAttribute("attribute", testing::TypedEq<std::string_view>("spasibo - 666"))).Times(1);
+    AddGeometriesToFeature(featureMock, geometries);
+}
+
+TEST_F(SpatialiteDatabaseAttributesRelationsTest, MultiColumnMultiTableRelatedAttributeIsAddedToFeature)
+{
+    auto geometryTable = CreateGeometryTable();
+    auto relatedTable1 = CreateTable("related_table1", {{"meaningfulNumber", "INTEGER"}, {"value", "INTEGER"}});
+    relatedTable1.Insert(666, 42);
+    auto relatedTable2 = CreateTable("related_table2", {{"meaningfulNumber", "INTEGER"}, {"value", "INTEGER"}});
+    relatedTable2.Insert(333, 42);
+    InitializeDb();
+
+    SpatialiteDatasource::AttributesInfo attributesInfo{
+        {"attribute",
+         {ColumnType::Text,
+          SpatialiteDatasource::Relation{
+              .columns = {"related_table2.meaningfulNumber", "related_table1.meaningfulNumber"},
+              .delimiter = "*2=",
+              .matchCondition = "layerTable.myEnum == related_table1.value AND layerTable.myEnum == related_table2.value"}}},
+    };
+    auto geometries = GetGeometries(geometryTable, attributesInfo);
+
+    FeatureMock featureMock;
+    EXPECT_CALL(featureMock, AddAttribute("attribute", testing::TypedEq<std::string_view>("333*2=666"))).Times(1);
+    AddGeometriesToFeature(featureMock, geometries);
 }

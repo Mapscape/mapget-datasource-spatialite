@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "DatabaseTest.h"
+#include "DatabaseTestFixture.h"
 #include "FeatureMock.h"
 
 #include <gmock/gmock.h>
@@ -45,7 +45,7 @@ using SpatialiteDatasource::GeometryType;
 using SpatialiteDatasource::Dimension;
 using SpatialiteDatasource::SpatialIndex;
 
-class SpatialiteDatabaseGeometriesTest : public SpatialiteDatabaseTest,
+class SpatialiteDatabaseGeometriesTest : public DatabaseTestFixture,
                                 public testing::WithParamInterface<SpatialiteDatasource::SpatialIndex>{};
 
 INSTANTIATE_TEST_SUITE_P(Database, SpatialiteDatabaseGeometriesTest, testing::Values(
