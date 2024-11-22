@@ -33,6 +33,7 @@ add_library(${PROJECT_NAME}-lib STATIC
     IFeature.h
     MapgetFeature.h
     SqlStatements.h
+    SqlStatements.cpp
     NavInfoIndex.h
     $<IF:$<BOOL:${NAVINFO_INTERNAL_BUILD}>,NavInfoIndex.cpp,NavInfoIndexDummy.cpp>
 )

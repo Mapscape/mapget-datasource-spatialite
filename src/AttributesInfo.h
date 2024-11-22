@@ -20,28 +20,40 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 namespace SpatialiteDatasource {
 
 enum class ColumnType
 {
-    Int64, Double, Text, Blob
+    Int64,
+    Double,
+    Text,
+    Blob
 };
 
 ColumnType ColumnTypeFromSqlType(int sqlType);
 ColumnType ParseColumnType(const std::string& type);
 std::string_view ColumnTypeToString(ColumnType columnType);
 
-struct AttributeInfo
+struct Relation
 {
-    std::string name;
-    ColumnType type;
+    std::vector<std::string> columns;
+    std::string delimiter;
+    std::string matchCondition;
 };
 
-using AttributesInfo = std::vector<AttributeInfo>;
+struct AttributeInfo
+{
+    ColumnType type;
+    std::optional<Relation> relation;
+};
+
+// attribute_name -> attribute_info
+using AttributesInfo = std::unordered_map<std::string, AttributeInfo>;
 
 // table_name -> attributes_info
 using TablesAttributesInfo = std::unordered_map<std::string, AttributesInfo>;

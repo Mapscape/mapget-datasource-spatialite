@@ -27,12 +27,12 @@ void TestDbDriver::InitNavInfoMetaData()
     // do nothing
 }
 
-void TestDbDriver::CreateNavInfoIndex([[maybe_unused]] const std::string& geometry)
+void Table::CreateNavInfoIndex()
 {
     throw std::logic_error{"NavInfo index shouldn't be created in public build"};
 }
 
-void TestDbDriver::RemoveNavInfoIndex()
+void Table::RemoveNavInfoIndex()
 {
     // do nothing
 }

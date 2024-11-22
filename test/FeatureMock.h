@@ -24,11 +24,13 @@
 
 #include <gtest/gtest.h>
 
+#include <gmock/gmock.h>
+
 using Geometries = std::vector<std::vector<mapget::Point>>;
 
 struct GeometryMock : SpatialiteDatasource::IGeometry
 {
-    GeometryMock(std::vector<mapget::Point>& geometry) : geometry{geometry} {}
+    explicit GeometryMock(std::vector<mapget::Point>& geometry) : geometry{geometry} {}
 
     void AddPoint(const mapget::Point& point) override
     {
@@ -55,30 +57,11 @@ struct FeatureMock : SpatialiteDatasource::IFeature
         return std::make_unique<GeometryMock>(geometries.emplace_back());
     }
 
-    void AddAttribute(std::string_view name, int64_t value) override
-    {
-        ++attributesCount;
-        intAttribute.name = name;
-        intAttribute.value = value;
-    }
-    void AddAttribute(std::string_view name, double value) override
-    {
-        ++attributesCount;
-        doubleAttribute.name = name;
-        doubleAttribute.value = value;
-    }
-    void AddAttribute(std::string_view name, std::string_view value) override
-    {
-        ++attributesCount;
-        stringAttributes.emplace_back(std::string{name}, std::string{value});
-    }
+    MOCK_METHOD(void, AddAttribute, (std::string_view name, int64_t value), (override));
+    MOCK_METHOD(void, AddAttribute, (std::string_view name, double value), (override));
+    MOCK_METHOD(void, AddAttribute, (std::string_view name, std::string_view value), (override));
 
     Geometries geometries;
     std::vector<SpatialiteDatasource::GeometryType> types;
     std::vector<size_t> initialCapacities;
-
-    size_t attributesCount = 0;
-    Attribute<int64_t> intAttribute;
-    Attribute<double> doubleAttribute;
-    std::vector<Attribute<std::string>> stringAttributes;
 };

@@ -43,64 +43,12 @@ TestDbDriver::~TestDbDriver()
     spatialite_cleanup_ex(m_spatialiteCache);
 }
 
-void TestDbDriver::Insert(const std::vector<std::string>& geometries, int srid)
+[[nodiscard]] Table TestDbDriver::CreateTable(std::string_view tableName, const std::vector<Column>& columns)
 {
-    std::string stmtStr = "INSERT INTO tbl (id, geometry, intAttribute, doubleAttribute, stringAttribute, blobAttribute) VALUES";
-    for (size_t i = 0; i < geometries.size(); ++i)
-    {
-        stmtStr += fmt::format(" ({}, GeomFromText('{}', @srid), 42, 6.66, 'value', X'deadbeef'),", i + 1, geometries[i]);
-    }
-    stmtStr.back() = ';';
-
-    SQLite::Statement stmt{m_db, stmtStr};
-    stmt.bind("@srid", srid);
-    if (stmt.exec() != geometries.size())
-        throw std::runtime_error{"Can't insert geometries into table"};
+    return {m_db, tableName, columns};
 }
 
 const std::filesystem::path& TestDbDriver::GetPath() const noexcept
 {
     return m_dbPath;
-}
-
-void TestDbDriver::AddGeometryColumn(const std::string& geometry, int srid)
-{
-    SQLite::Statement stmt{m_db, 
-        "SELECT AddGeometryColumn('tbl', 'geometry', @srid, @geometry);"};
-    stmt.bind("@geometry", geometry);
-    stmt.bind("@srid", srid);
-    stmt.executeStep();
-    if (stmt.getColumn(0).getInt() != 1)
-        throw std::runtime_error{"Can't add geometry column"};
-}
-
-void TestDbDriver::CreateSpatialIndex(
-    SpatialiteDatasource::SpatialIndex spatialIndex, 
-    const std::string& geometry)
-{
-    using SpatialiteDatasource::SpatialIndex;
-
-    if (spatialIndex == SpatialIndex::None)
-        return;
-
-    std::string stmtStr;
-    switch (spatialIndex)
-    {
-    case SpatialIndex::RTree:
-        stmtStr = "SELECT CreateSpatialIndex('tbl', 'geometry');";
-        break;
-    case SpatialIndex::MbrCache:
-        stmtStr = "SELECT CreateMbrCache('tbl', 'geometry');";
-        break;
-    case SpatialIndex::NavInfo:
-        CreateNavInfoIndex(geometry);
-        return;
-    default:
-        throw std::runtime_error{"Unknown spatial index"};
-    }
-    
-    SQLite::Statement stmt{m_db, stmtStr};
-    stmt.executeStep();
-    if (stmt.getColumn(0).getInt() != 1)
-        throw std::runtime_error{"Can't create spatial index"};
 }

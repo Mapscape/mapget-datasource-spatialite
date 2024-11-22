@@ -30,6 +30,7 @@
 #include <boost/program_options.hpp>
 
 #include <iostream>
+#include <fstream>
 
 namespace po = boost::program_options;
 
@@ -38,7 +39,7 @@ int main(int argc, char** argv)
     auto newLogger = mapget::log().clone("msds");
     mapget::log().swap(*newLogger);
 
-    std::filesystem::path mapPath, infoPath, attributesPath;
+    std::filesystem::path mapPath, configPath;
     uint16_t port;
     bool isVerbose, isNoAttributes;
     po::options_description description{"Allowed options"};
@@ -46,8 +47,7 @@ int main(int argc, char** argv)
         ("help", "produce help message")
         ("map,m", po::value(&mapPath), "path to a spatialite database to use")
         ("port,p", po::value(&port)->default_value(0), "http server port")
-        ("info,i", po::value(&infoPath), "path to a datasource info in json format (will retrieve the info from the db if not provided)")
-        ("attributes,a", po::value(&attributesPath), "path to an attributes info in json format (will retrieve the info from the db if not provided)")
+        ("config,c", po::value(&configPath), "path to a datasource config in json format (will retrieve the info from the db if not provided)")
         ("no-attributes", po::bool_switch(&isNoAttributes), "do not add any attributes to features")
         ("verbose,v", po::bool_switch(&isVerbose), "enable debug logs");
     po::variables_map vm;
@@ -68,14 +68,17 @@ int main(int argc, char** argv)
         spatialite_shutdown();
     } BOOST_SCOPE_EXIT_END
     
-    SpatialiteDatasource::Datasource ds{mapPath, infoPath, port};
-    if (!isNoAttributes)
+    nlohmann::json config;
+    if (!configPath.empty())
     {
-        if (!attributesPath.empty())
-            ds.EnableAttributesWithInfoJson(attributesPath);
-        else
-            ds.EnableAttributes();
+        mapget::log().info("Reading config from {}", configPath.string());
+        std::ifstream configFile{configPath};
+        configFile >> config;
     }
+
+    SpatialiteDatasource::Datasource ds{
+        mapPath, config, port,
+        isNoAttributes ? SpatialiteDatasource::UseAttributes::No : SpatialiteDatasource::UseAttributes::Yes};
     ds.Run();
 
     return 0;

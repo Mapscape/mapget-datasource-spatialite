@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "DatabaseTest.h"
+#include "DatabaseTestFixture.h"
 #include "GeometryType.h"
 
 #include <spatialite/gg_const.h>
@@ -38,41 +38,42 @@ using SpatialiteDatasource::GeometryType;
 using SpatialiteDatasource::Dimension;
 using SpatialiteDatasource::SpatialIndex;
 
-std::unique_ptr<TestDbDriver> SpatialiteDatabaseTest::testDb{};
+class SpatialiteDatabaseTest : public DatabaseTestFixture {};
 
 TEST_F(SpatialiteDatabaseTest, ExceptionIsThrownIfNoGeometryColumnInTable)
 {
     InitializeDb();
-    EXPECT_EXCEPTION(spatialiteDb->GetGeometryColumnInfo("tbl"), "Table 'tbl' is not in 'geometry_columns'");
+    EXPECT_EXCEPTION(spatialiteDb->GetGeometryColumnInfo("blahblahblah"), "Table 'blahblahblah' is not in 'geometry_columns'");
 }
 
 TEST_F(SpatialiteDatabaseTest, ExceptionIsThrownIfGeometryColumnIsNotInWGS84)
 {
-    const auto table = InitializeDbWithEmptyTable("POINT", SpatialIndex::None, 3857);
-    EXPECT_EXCEPTION(spatialiteDb->GetGeometryColumnInfo(table.name), "Geometry column of 'tbl' table is not in WGS84");
+    const auto table = InitializeDbWithEmptyGeometryTable("my_table", "POINT", SpatialIndex::None, 3857);
+    EXPECT_EXCEPTION(spatialiteDb->GetGeometryColumnInfo(table.name), "Geometry column of 'my_table' table is not in WGS84");
 }
 
 TEST_F(SpatialiteDatabaseTest, GeometryColumnInfoIsReturned)
 {
-    const auto table = InitializeDbWithEmptyTable("POINT", SpatialIndex::None);
+    const auto table = InitializeDbWithEmptyGeometryTable("my_table", "POINT", SpatialIndex::None);
     const auto geomInfo = spatialiteDb->GetGeometryColumnInfo(table.name);
-    EXPECT_EQ(geomInfo.name, table.geometryColumn);
+    EXPECT_EQ(geomInfo.name, table.GetGeometryColumnName());
     EXPECT_EQ(geomInfo.type, GAIA_POINT);
 }
 
 TEST_F(SpatialiteDatabaseTest, TablesNamesAreReturned)
 {
-    const auto table = InitializeDbWithEmptyTable("POINT", SpatialIndex::None);
+    const auto table = InitializeDbWithEmptyGeometryTable("my_table", "POINT", SpatialIndex::None);
     const auto tablesNames = spatialiteDb->GetTablesNames();
     ASSERT_EQ(tablesNames.size(), 1);
-    EXPECT_EQ(tablesNames[0], "tbl");
+    EXPECT_EQ(tablesNames[0], table.name);
 }
 
 TEST_F(SpatialiteDatabaseTest, EmptyViewDoesNotThrow)
 {
-    const auto table = InitializeDbWithEmptyTable("POINT", SpatialIndex::None);
+    const auto table = InitializeDbWithEmptyGeometryTable("my_table", "POINT", SpatialIndex::None);
     auto geometries = spatialiteDb->GetGeometries(
-        table.name, table.geometryColumn, GeometryType::Point, Dimension::XY, emptyAttributesInfo, {0, 0, 0, 0});
+        table.name, table.GetGeometryColumnName(), GeometryType::Point, Dimension::XY, emptyAttributesInfo,
+        {0, 0, 0, 0});
 
     EXPECT_EQ(geometries.begin(), geometries.end());
 }
