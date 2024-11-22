@@ -44,7 +44,7 @@ else()
 
     FetchContent_Declare(mapget
         GIT_REPOSITORY "https://github.com/ndsev/mapget"
-        GIT_TAG        "v2024.3.1"
+        GIT_TAG        "v2024.4.0"
             GIT_SHALLOW    ON
             EXCLUDE_FROM_ALL)
     FetchContent_MakeAvailable(mapget)
