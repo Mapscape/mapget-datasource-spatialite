@@ -28,6 +28,7 @@ add_executable(unit-test
     DatabaseTest.cpp
     FeatureMock.h
     GeometriesTest.cpp
+    ScalingTest.cpp
     TestDbDriver.h
     TestDbDriver.cpp
     Table.h

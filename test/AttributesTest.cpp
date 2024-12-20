@@ -18,20 +18,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "AttributesInfo.h"
+#include "TableInfo.h"
 #include "DatabaseTestFixture.h"
 #include "FeatureMock.h"
 #include "GeometryType.h"
 
 using SpatialiteDatasource::ColumnType;
-
-void AddGeometriesToFeature(FeatureMock& feature, auto& geometries)
-{
-    for (auto g : geometries)
-    {
-        g.AddTo(feature);
-    }
-}
 
 class SpatialiteDatabaseAttributesTest 
     : public DatabaseTestFixture
@@ -70,11 +62,14 @@ TEST_P(SpatialiteDatabaseAttributesTest, AttributesAreAddedToFeature)
     table.Insert(42, 6.66, "value", Binary{"DEADBEEF"}, Geometry{geometry});
     InitializeDb();
 
-    SpatialiteDatasource::AttributesInfo attributesInfo{
-        {"intAttribute", {ColumnType::Int64}},
-        {"doubleAttribute", {ColumnType::Double}},
-        {"stringAttribute", {ColumnType::Text}},
-        {"blobAttribute", {ColumnType::Blob}}
+    SpatialiteDatasource::TableInfo tableInfo{
+        .attributes = {
+            {"intAttribute", {ColumnType::Int64}},
+            {"doubleAttribute", {ColumnType::Double}},
+            {"stringAttribute", {ColumnType::Text}},
+            {"blobAttribute", {ColumnType::Blob}}
+        },
+        .scaling = {}
     };
 
     auto geometries = spatialiteDb->GetGeometries(
@@ -82,7 +77,7 @@ TEST_P(SpatialiteDatabaseAttributesTest, AttributesAreAddedToFeature)
         table.GetGeometryColumnName(),
         geometryType,
         dimension,
-        attributesInfo,
+        tableInfo,
         mbr);
 
     FeatureMock featureMock;
@@ -94,7 +89,7 @@ TEST_P(SpatialiteDatabaseAttributesTest, AttributesAreAddedToFeature)
         EXPECT_CALL(featureMock, AddAttribute("blobAttribute", TypedEq<std::string_view>("DEADBEEF"))).Times(1);
     }
 
-    AddGeometriesToFeature(featureMock, geometries);
+    featureMock.AddGeometries(geometries);
 }
 
 class SpatialiteDatabaseAttributesRelationsTest : public DatabaseTestFixture
@@ -108,14 +103,14 @@ public:
         return table;
     }
 
-    auto GetGeometries(const Table& geometryTable, const SpatialiteDatasource::AttributesInfo& attributesInfo)
+    auto GetGeometries(const Table& geometryTable, const SpatialiteDatasource::TableInfo& tableInfo)
     {
         return spatialiteDb->GetGeometries(
         geometryTable.name,
         geometryTable.GetGeometryColumnName(),
         SpatialiteDatasource::GeometryType::Point,
         SpatialiteDatasource::Dimension::XY,
-        attributesInfo,
+        tableInfo,
         mbr);
     }
 };
@@ -127,19 +122,20 @@ TEST_F(SpatialiteDatabaseAttributesRelationsTest, SingleColumnRelatedAttributeIs
     relatedTable.Insert(666, 42);
     InitializeDb();
 
-    SpatialiteDatasource::AttributesInfo attributesInfo{
-        {"attribute",
+    SpatialiteDatasource::TableInfo tableInfo{
+        .attributes = {{"attribute",
          {ColumnType::Int64,
           SpatialiteDatasource::Relation{
               .columns = {"related_table.meaningfulNumber"},
               .delimiter = ";",
-              .matchCondition = "layerTable.myEnum == related_table.value"}}},
+              .matchCondition = "layerTable.myEnum == related_table.value"}}}},
+        .scaling = {}
     };
-    auto geometries = GetGeometries(geometryTable, attributesInfo);
+    auto geometries = GetGeometries(geometryTable, tableInfo);
 
     FeatureMock featureMock;
     EXPECT_CALL(featureMock, AddAttribute("attribute", testing::TypedEq<int64_t>(666))).Times(1);
-    AddGeometriesToFeature(featureMock, geometries);
+    featureMock.AddGeometries(geometries);
 }
 
 TEST_F(SpatialiteDatabaseAttributesRelationsTest, MultiColumnSingleTableRelatedAttributeIsAddedToFeature)
@@ -149,19 +145,20 @@ TEST_F(SpatialiteDatabaseAttributesRelationsTest, MultiColumnSingleTableRelatedA
     relatedTable.Insert(666, "spasibo", 42);
     InitializeDb();
 
-    SpatialiteDatasource::AttributesInfo attributesInfo{
-        {"attribute",
+    SpatialiteDatasource::TableInfo tableInfo{
+        .attributes = {{"attribute",
          {ColumnType::Text,
           SpatialiteDatasource::Relation{
               .columns = {"related_table.meaningfulString", "related_table.meaningfulNumber"},
               .delimiter = " - ",
-              .matchCondition = "layerTable.myEnum == related_table.value"}}},
+              .matchCondition = "layerTable.myEnum == related_table.value"}}}},
+        .scaling = {}
     };
-    auto geometries = GetGeometries(geometryTable, attributesInfo);
+    auto geometries = GetGeometries(geometryTable, tableInfo);
 
     FeatureMock featureMock;
     EXPECT_CALL(featureMock, AddAttribute("attribute", testing::TypedEq<std::string_view>("spasibo - 666"))).Times(1);
-    AddGeometriesToFeature(featureMock, geometries);
+    featureMock.AddGeometries(geometries);
 }
 
 TEST_F(SpatialiteDatabaseAttributesRelationsTest, MultiColumnMultiTableRelatedAttributeIsAddedToFeature)
@@ -173,17 +170,18 @@ TEST_F(SpatialiteDatabaseAttributesRelationsTest, MultiColumnMultiTableRelatedAt
     relatedTable2.Insert(333, 42);
     InitializeDb();
 
-    SpatialiteDatasource::AttributesInfo attributesInfo{
-        {"attribute",
+    SpatialiteDatasource::TableInfo tableInfo{
+        .attributes = {{"attribute",
          {ColumnType::Text,
           SpatialiteDatasource::Relation{
               .columns = {"related_table2.meaningfulNumber", "related_table1.meaningfulNumber"},
               .delimiter = "*2=",
-              .matchCondition = "layerTable.myEnum == related_table1.value AND layerTable.myEnum == related_table2.value"}}},
+              .matchCondition = "layerTable.myEnum == related_table1.value AND layerTable.myEnum == related_table2.value"}}}},
+        .scaling = {}
     };
-    auto geometries = GetGeometries(geometryTable, attributesInfo);
+    auto geometries = GetGeometries(geometryTable, tableInfo);
 
     FeatureMock featureMock;
     EXPECT_CALL(featureMock, AddAttribute("attribute", testing::TypedEq<std::string_view>("333*2=666"))).Times(1);
-    AddGeometriesToFeature(featureMock, geometries);
+    featureMock.AddGeometries(geometries);
 }

@@ -23,7 +23,7 @@
 #include "GeometriesView.h"
 #include "GeometryType.h"
 #include "SqlStatements.h"
-#include "AttributesInfo.h"
+#include "TableInfo.h"
 
 #include <mapget/log.h>
 #include <SQLiteCpp/Database.h>
@@ -105,10 +105,10 @@ public:
      */
     [[nodiscard]] GeometriesView GetGeometries(
         const std::string& tableName, 
-        const std::string& geometryColumn, 
+        const std::string& geometryColumn,
         GeometryType geometryType,
         Dimension dimension,
-        const AttributesInfo& attributesInfo,
+        const TableInfo& tableInfo,
         const Mbr& mbr) const;
 private:
     [[nodiscard]] std::string GetPrimaryKeyColumnName(const std::string& tableName) const;
