@@ -29,6 +29,6 @@ int main(int argc, char **argv)
         spatialite_shutdown();
     } BOOST_SCOPE_EXIT_END
 
-    testing::InitGoogleMock(&argc, argv);
+    testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
