@@ -22,214 +22,188 @@
 #include "FeatureMock.h"
 
 #include <gmock/gmock.h>
+#include <boost/algorithm/string/case_conv.hpp>
 
-#define CHECK_GEOMETRIES(table, type, dimension, ...)        \
-    auto geometries = GetGeometries(type, dimension, table); \
-    FeatureMock featureMock;                                 \
-    for (auto g : geometries)                                \
-    {                                                        \
-        g.AddTo(featureMock);                                \
-    }                                                        \
-    EXPECT_THAT(featureMock.types, testing::Each(type));     \
-    const Geometries expectedGeometries{__VA_ARGS__};        \
-    EXPECT_THAT(featureMock.geometries,                      \
-                testing::ContainerEq(expectedGeometries));   \
-    ASSERT_EQ(featureMock.initialCapacities.size(),          \
-                expectedGeometries.size());                  \
-    EXPECT_THAT(                                             \
-        featureMock.initialCapacities,                       \
-        testing::ElementsAreArray(std::views::transform(     \
-            expectedGeometries, [](const auto& v) { return v.size(); })))
-
-using SpatialiteDatasource::GeometryType;
-using SpatialiteDatasource::Dimension;
 using SpatialiteDatasource::SpatialIndex;
 
-class SpatialiteDatabaseGeometriesTest : public DatabaseTestFixture,
-                                public testing::WithParamInterface<SpatialiteDatasource::SpatialIndex>{};
+struct GeometryTestCase
+{
+    std::vector<std::string> inputGeometries;
+    MapgetGeometries expectedGeometries;
+};
 
-INSTANTIATE_TEST_SUITE_P(Database, SpatialiteDatabaseGeometriesTest, testing::Values(
-    SpatialIndex::None, 
-    SpatialIndex::RTree, 
-    SpatialIndex::MbrCache
-#if NAVINFO_INTERNAL_BUILD
-    , SpatialIndex::NavInfo
-#endif
-),
-[](const testing::TestParamInfo<SpatialiteDatabaseGeometriesTest::ParamType>& info) {
-    switch (info.param)
+class SpatialiteDatabaseGeometriesTest
+    : public DatabaseTestFixture
+    , public testing::WithParamInterface<std::tuple<GeometryTestCase, SpatialIndex>>{};
+
+INSTANTIATE_TEST_SUITE_P(Database, SpatialiteDatabaseGeometriesTest, testing::Combine(
+    testing::ValuesIn(std::initializer_list<GeometryTestCase>{
+        {
+            {
+                "POINT(1 2)", 
+                "POINT(3 4)"
+            },
+            {
+                {{1, 2}}, 
+                {{3, 4}}
+            }
+        },
+        {
+            {
+                "POINTZ(1 2 3)", 
+                "POINTZ(4 5 6)"
+            },
+            {
+                {{1, 2, 3}}, 
+                {{4, 5, 6}}
+            }
+        },
+        {
+            {
+                "LINESTRING(1 2, 3 4, 5 6, 7 8)", 
+                "LINESTRING(9 1, 2 3)"
+            },
+            {
+                {{1, 2}, {3, 4}, {5, 6}, {7, 8}}, 
+                {{9, 1}, {2, 3}}
+            }
+        },
+        {
+            {
+                "LINESTRINGZ(1 2 3, 4 5 6, 7 8 9, 10 11 12)", 
+                "LINESTRINGZ(3 4 5, 6 7 8)"
+            },
+            {
+                {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}, {10, 11, 12}}, 
+                {{3, 4, 5}, {6, 7, 8}}
+            }
+        },
+        {
+            {
+                "POLYGON((1 2, 3 4, 5 6, 1 2))", 
+                "POLYGON((7 8, 9 10, 11 12, 13 14, 7 8))"
+            },
+            {
+                {{1, 2}, {3, 4}, {5, 6}, {1, 2}}, 
+                {{7, 8}, {9, 10}, {11, 12}, {13, 14}, {7, 8}}
+            }
+        },
+        {
+            {
+                "POLYGONZ((1 2 3, 4 5 6, 7 8 9, 1 2 3))", 
+                "POLYGONZ((11 12 13, 14 15 16, 17 18 19, 1 2 3, 11 12 13))"
+            },
+            {
+                {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}, {1, 2, 3}}, 
+                {{11, 12, 13}, {14, 15, 16}, {17, 18, 19}, {1, 2, 3}, {11, 12, 13}}
+            }
+        },
+        {
+            {
+                "MULTIPOINT((1 2), (3 4), (5 6))", 
+                "MULTIPOINT((7 8))"
+            },
+            {
+                {{1, 2}}, 
+                {{3, 4}}, 
+                {{5, 6}}, 
+                {{7, 8}}
+            }
+        },
+        {
+            {
+                "MULTIPOINTZ((1 2 3), (4 5 6), (7 8 9))", 
+                "MULTIPOINTZ((11 12 13))"
+            },
+            {
+                {{1, 2, 3}}, 
+                {{4, 5, 6}}, 
+                {{7, 8, 9}}, 
+                {{11, 12, 13}}
+            }
+        },
+        {
+            {
+                "MULTILINESTRING((1 2, 3 4), (5 6, 7 8), (9 1, 2 3, 4 5))", 
+                "MULTILINESTRING((13 14, 15 16))"
+            },
+            {
+                {{1, 2}, {3, 4}},
+                {{5, 6}, {7, 8}}, 
+                {{9, 1}, {2, 3}, {4, 5}},
+                {{13, 14}, {15, 16}}
+            }
+        },
+        {
+            {
+                "MULTILINESTRINGZ((1 2 3, 3 4 2), (5 6 3, 7 8 4), (9 1 5, 2 3 6, 4 5 7))", 
+                "MULTILINESTRINGZ((13 14 8, 16 17 9))"
+            },
+            {
+                {{1, 2, 3}, {3, 4, 2}},
+                {{5, 6, 3}, {7, 8, 4}}, 
+                {{9, 1, 5}, {2, 3, 6}, {4, 5, 7}},
+                {{13, 14, 8}, {16, 17, 9}}
+            }
+        },
+        {
+            {
+                "MULTIPOLYGON(((1 2, 3 4, 5 6, 1 2)), ((7 8, 9 10, 11 12, 13 14, 7 8)), ((13 14, 15 16, 21 22, 13 14)))", 
+                "MULTIPOLYGON(((17 18, 19 20, 1 2, 17 18)))"
+            },
+            {
+                {{1, 2}, {3, 4}, {5, 6}, {1, 2}}, 
+                {{7, 8}, {9, 10}, {11, 12}, {13, 14}, {7, 8}},
+                {{13, 14}, {15, 16}, {21, 22}, {13, 14}},
+                {{17, 18}, {19, 20}, {1, 2}, {17, 18}}
+            }
+        },
+        {
+            {
+                "MULTIPOLYGONZ(((1 2 3, 3 4 1, 5 6 2, 1 2 3)), ((7 8 1, 9 10 2, 11 12 3, 13 14 4, 7 8 1)), ((13 14 1, 15 16 2, 21 22 3, 13 14 1)))", 
+                "MULTIPOLYGONZ(((17 18 5, 19 20 6, 1 2 7, 17 18 5)))"
+            },
+            {
+                {{1, 2, 3}, {3, 4, 1}, {5, 6, 2}, {1, 2, 3}}, 
+                {{7, 8, 1}, {9, 10, 2}, {11, 12, 3}, {13, 14, 4}, {7, 8, 1}},
+                {{13, 14, 1}, {15, 16, 2}, {21, 22, 3}, {13, 14, 1}},
+                {{17, 18, 5}, {19, 20, 6}, {1, 2, 7}, {17, 18, 5}}
+            }
+        },
+    }),
+    testing::Values(
+        SpatialIndex::None, 
+        SpatialIndex::RTree, 
+        SpatialIndex::MbrCache
+    #if NAVINFO_INTERNAL_BUILD
+        , SpatialIndex::NavInfo
+    #endif
+    )),
+    [](const auto& info)
     {
-    case SpatialIndex::None:
-        return "NoIndex";
-    case SpatialIndex::RTree:
-        return "RTreeIndex";
-    case SpatialIndex::MbrCache:
-        return "MBRCache";
-    case SpatialIndex::NavInfo:
-        return "NavInfo";
-    default:
-        throw std::logic_error{"Unknown param"};
+        auto testName = std::get<std::string>(GetGeometryInfoFromGeometry(
+            std::get<0>(info.param).inputGeometries[0]));
+        boost::to_lower(testName);
+        testName[0] = std::toupper(testName[0]);
+        testName += SpatialIndexToString(std::get<1>(info.param));
+        return testName;
     }
-});
+);
 
-TEST_P(SpatialiteDatabaseGeometriesTest, Points2DAreCreated)
+TEST_P(SpatialiteDatabaseGeometriesTest, GeometriesAreCreated)
 {
-    const auto table = InitializeDbWithGeometries("POINT", GetParam(), {
-        "POINT(1 2)", 
-        "POINT(3 4)"
-    });
+    const auto& [geometries, index] = GetParam();
+    const auto table = InitializeDbWithGeometries(geometries.inputGeometries, index);
     
-    CHECK_GEOMETRIES(table, GeometryType::Point, Dimension::XY, {{1, 2}}, {{3, 4}});
-}
-
-TEST_P(SpatialiteDatabaseGeometriesTest, Points3DAreCreated)
-{
-    const auto table = InitializeDbWithGeometries("POINTZ", GetParam(), {
-        "POINTZ(1 2 3)", 
-        "POINTZ(4 5 6)"
-    });
-    
-    CHECK_GEOMETRIES(table, GeometryType::Point, Dimension::XYZ, {{1, 2, 3}}, {{4, 5, 6}});
-}
-
-TEST_P(SpatialiteDatabaseGeometriesTest, Lines2DAreCreated)
-{
-    const auto table = InitializeDbWithGeometries("LINESTRING", GetParam(), {
-        "LINESTRING(1 2, 3 4, 5 6, 7 8)", 
-        "LINESTRING(9 1, 2 3)"
-    });
-    
-    CHECK_GEOMETRIES(table, GeometryType::Line, Dimension::XY, 
-        {{1, 2}, {3, 4}, {5, 6}, {7, 8}}, 
-        {{9, 1}, {2, 3}}
-    );
-}
-
-TEST_P(SpatialiteDatabaseGeometriesTest, Lines3DAreCreated)
-{
-    const auto table = InitializeDbWithGeometries("LINESTRINGZ", GetParam(), {
-        "LINESTRINGZ(1 2 3, 4 5 6, 7 8 9, 10 11 12)", 
-        "LINESTRINGZ(3 4 5, 6 7 8)"
-    });
-    
-    CHECK_GEOMETRIES(table, GeometryType::Line, Dimension::XYZ, 
-        {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}, {10, 11, 12}}, 
-        {{3, 4, 5}, {6, 7, 8}}
-    );
-}
-
-TEST_P(SpatialiteDatabaseGeometriesTest, Polygons2DAreCreated)
-{
-    const auto table = InitializeDbWithGeometries("POLYGON", GetParam(), {
-        "POLYGON((1 2, 3 4, 5 6, 1 2))", 
-        "POLYGON((7 8, 9 10, 11 12, 13 14, 7 8))"
-    });
-    
-    CHECK_GEOMETRIES(table, GeometryType::Polygon, Dimension::XY, 
-        {{1, 2}, {3, 4}, {5, 6}, {1, 2}}, 
-        {{7, 8}, {9, 10}, {11, 12}, {13, 14}, {7, 8}}
-    );
-}
-
-TEST_P(SpatialiteDatabaseGeometriesTest, Polygons3DAreCreated)
-{
-    const auto table = InitializeDbWithGeometries("POLYGONZ", GetParam(), {
-        "POLYGONZ((1 2 3, 4 5 6, 7 8 9, 1 2 3))", 
-        "POLYGONZ((11 12 13, 14 15 16, 17 18 19, 1 2 3, 11 12 13))"
-    });
-    
-    CHECK_GEOMETRIES(table, GeometryType::Polygon, Dimension::XYZ, 
-        {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}, {1, 2, 3}}, 
-        {{11, 12, 13}, {14, 15, 16}, {17, 18, 19}, {1, 2, 3}, {11, 12, 13}}
-    );
-}
-
-TEST_P(SpatialiteDatabaseGeometriesTest, MultiPoints2DAreCreated)
-{
-    const auto table = InitializeDbWithGeometries("MULTIPOINT", GetParam(), {
-        "MULTIPOINT((1 2), (3 4), (5 6))", 
-        "MULTIPOINT((7 8))"
-    });
-    
-    CHECK_GEOMETRIES(table, GeometryType::MultiPoint, Dimension::XY, 
-        {{1, 2}}, 
-        {{3, 4}}, 
-        {{5, 6}}, 
-        {{7, 8}}
-    );
-}
-
-TEST_P(SpatialiteDatabaseGeometriesTest, MultiPoints3DAreCreated)
-{
-    const auto table = InitializeDbWithGeometries("MULTIPOINTZ", GetParam(), {
-        "MULTIPOINTZ((1 2 3), (4 5 6), (7 8 9))", 
-        "MULTIPOINTZ((11 12 13))"
-    });
-    
-    CHECK_GEOMETRIES(table, GeometryType::MultiPoint, Dimension::XYZ, 
-        {{1, 2, 3}}, 
-        {{4, 5, 6}}, 
-        {{7, 8, 9}}, 
-        {{11, 12, 13}}
-    );
-}
-
-TEST_P(SpatialiteDatabaseGeometriesTest, MultiLines2DAreCreated)
-{
-    const auto table = InitializeDbWithGeometries("MULTILINESTRING", GetParam(), {
-        "MULTILINESTRING((1 2, 3 4), (5 6, 7 8), (9 1, 2 3, 4 5))", 
-        "MULTILINESTRING((13 14, 15 16))"
-    });
-    
-    CHECK_GEOMETRIES(table, GeometryType::MultiLine, Dimension::XY, 
-        {{1, 2}, {3, 4}},
-        {{5, 6}, {7, 8}}, 
-        {{9, 1}, {2, 3}, {4, 5}},
-        {{13, 14}, {15, 16}}
-    );
-}
-
-TEST_P(SpatialiteDatabaseGeometriesTest, MultiLines3DAreCreated)
-{
-    const auto table = InitializeDbWithGeometries("MULTILINESTRINGZ", GetParam(), {
-        "MULTILINESTRINGZ((1 2 3, 3 4 2), (5 6 3, 7 8 4), (9 1 5, 2 3 6, 4 5 7))", 
-        "MULTILINESTRINGZ((13 14 8, 16 17 9))"
-    });
-    
-    CHECK_GEOMETRIES(table, GeometryType::MultiLine, Dimension::XYZ, 
-        {{1, 2, 3}, {3, 4, 2}},
-        {{5, 6, 3}, {7, 8, 4}}, 
-        {{9, 1, 5}, {2, 3, 6}, {4, 5, 7}},
-        {{13, 14, 8}, {16, 17, 9}}
-    );
-}
-
-TEST_P(SpatialiteDatabaseGeometriesTest, MultiPolygons2DAreCreated)
-{
-    const auto table = InitializeDbWithGeometries("MULTIPOLYGON", GetParam(), {
-        "MULTIPOLYGON(((1 2, 3 4, 5 6, 1 2)), ((7 8, 9 10, 11 12, 13 14, 7 8)), ((13 14, 15 16, 21 22, 13 14)))", 
-        "MULTIPOLYGON(((17 18, 19 20, 1 2, 17 18)))"
-    });
-    
-    CHECK_GEOMETRIES(table, GeometryType::MultiPolygon, Dimension::XY, 
-        {{1, 2}, {3, 4}, {5, 6}, {1, 2}}, 
-        {{7, 8}, {9, 10}, {11, 12}, {13, 14}, {7, 8}},
-        {{13, 14}, {15, 16}, {21, 22}, {13, 14}},
-        {{17, 18}, {19, 20}, {1, 2}, {17, 18}}
-    );
-}
-
-TEST_P(SpatialiteDatabaseGeometriesTest, MultiPolygons3DAreCreated)
-{
-    const auto table = InitializeDbWithGeometries("MULTIPOLYGONZ", GetParam(), {
-        "MULTIPOLYGONZ(((1 2 3, 3 4 1, 5 6 2, 1 2 3)), ((7 8 1, 9 10 2, 11 12 3, 13 14 4, 7 8 1)), ((13 14 1, 15 16 2, 21 22 3, 13 14 1)))", 
-        "MULTIPOLYGONZ(((17 18 5, 19 20 6, 1 2 7, 17 18 5)))"
-    });
-    
-    CHECK_GEOMETRIES(table, GeometryType::MultiPolygon, Dimension::XYZ, 
-        {{1, 2, 3}, {3, 4, 1}, {5, 6, 2}, {1, 2, 3}}, 
-        {{7, 8, 1}, {9, 10, 2}, {11, 12, 3}, {13, 14, 4}, {7, 8, 1}},
-        {{13, 14, 1}, {15, 16, 2}, {21, 22, 3}, {13, 14, 1}},
-        {{17, 18, 5}, {19, 20, 6}, {1, 2, 7}, {17, 18, 5}}
-    );
+    const auto [geometryType, dimension, geometryTypeStr] = GetGeometryInfoFromGeometry(geometries.inputGeometries[0]);
+    auto resultGeometries = GetGeometries(geometryType, dimension, table);
+    FeatureMock featureMock;
+    featureMock.AddGeometries(resultGeometries);
+    EXPECT_THAT(featureMock.types, testing::Each(geometryType));
+    EXPECT_THAT(featureMock.geometries,
+                testing::ContainerEq(geometries.expectedGeometries));
+    ASSERT_EQ(featureMock.initialCapacities.size(), geometries.expectedGeometries.size());
+    EXPECT_THAT(featureMock.initialCapacities,
+        testing::ElementsAreArray(std::views::transform(
+            geometries.expectedGeometries, [](const auto& v) { return v.size(); })));
 }

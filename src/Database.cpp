@@ -19,7 +19,7 @@
 // SOFTWARE.
 
 #include "Database.h"
-#include "AttributesInfo.h"
+#include "TableInfo.h"
 #include "GeometryType.h"
 #include "NavInfoIndex.h"
 
@@ -167,22 +167,32 @@ Database::~Database()
     const std::string& geometryColumn,
     GeometryType geometryType,
     Dimension dimension,
-    const AttributesInfo& attributesInfo,
+    const TableInfo& tableInfo,
     const Mbr& mbr) const
 {
+    const auto indexType = GetSpatialIndexType(tableName);
     SQLite::Statement stmt{m_db, GetSqlQuery(
         tableName, 
         m_primaryKeys.at(tableName), 
         geometryColumn, 
-        attributesInfo, 
-        GetSpatialIndexType(tableName))
+        tableInfo.attributes, 
+        indexType)
     };
-    stmt.bind("@xMin", mbr.xmin);
-    stmt.bind("@yMin", mbr.ymin);
-    stmt.bind("@xMax", mbr.xmax);
-    stmt.bind("@yMax", mbr.ymax);
+    double xScaling = 1;
+    double yScaling = 1;
+    // NavInfo index always works with the original coordinates,
+    // so we must not scale MBR coordinates here
+    if (indexType != SpatialIndex::NavInfo)
+    {
+        xScaling = tableInfo.scaling.x;
+        yScaling = tableInfo.scaling.y;
+    }
+    stmt.bind("@xMin", mbr.xmin / xScaling);
+    stmt.bind("@yMin", mbr.ymin / yScaling);
+    stmt.bind("@xMax", mbr.xmax / xScaling);
+    stmt.bind("@yMax", mbr.ymax / yScaling);
     mapget::log().debug("Getting geometries with an SQL query: {}", stmt.getExpandedSQL());
-    return GeometriesView{geometryType, dimension, std::move(stmt), attributesInfo};
+    return GeometriesView{geometryType, dimension, std::move(stmt), tableInfo};
 }
 
 [[nodiscard]] std::string Database::GetPrimaryKeyColumnName(const std::string& tableName) const

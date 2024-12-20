@@ -22,7 +22,7 @@
 
 #include "GeometryType.h"
 #include "IFeature.h"
-#include "AttributesInfo.h"
+#include "TableInfo.h"
 
 #include <SQLiteCpp/Statement.h>
 #include <SQLiteCpp/Column.h>
@@ -45,7 +45,7 @@ public:
         GeometryType geometryType, 
         Dimension dimension,
         const SQLite::Statement& stmt,
-        const AttributesInfo& attributes
+        const TableInfo& tableInfo
     ) noexcept;
 
     /**
@@ -59,7 +59,7 @@ public:
      * @brief Add the geometry and it's attributes to the given feature
      */
     void AddTo(IFeature& feature);
-
+    
 private:
     void AddAttributesTo(IFeature& feature);
     void AddPointTo(gaiaPointPtr point, IFeature& feature);
@@ -71,6 +71,7 @@ private:
     void AddLineOrPolygonTo(T gaiaGeometry, IFeature& feature)
     {
         auto geometry = feature.AddGeometry(m_geometryType, gaiaGeometry->Points);
+        const auto& scaling = m_tableInfo.scaling;
         for (int i = 0; i < gaiaGeometry->Points; ++i)
         {
             double x, y, z, m;
@@ -78,19 +79,19 @@ private:
             {
             case Dimension::XY:
                 gaiaGetPoint(gaiaGeometry->Coords, i, &x, &y);
-                geometry->AddPoint({x, y}); 
+                geometry->AddPoint({x * scaling.x, y * scaling.y}); 
                 break;
             case Dimension::XYM:
                 gaiaGetPointXYM(gaiaGeometry->Coords, i, &x, &y, &m);
-                geometry->AddPoint({x, y}); 
+                geometry->AddPoint({x * scaling.x, y * scaling.y}); 
                 break;
             case Dimension::XYZ:
                 gaiaGetPointXYZ(gaiaGeometry->Coords, i, &x, &y, &z);
-                geometry->AddPoint({x, y, z});
+                geometry->AddPoint({x * scaling.x, y * scaling.y, z * scaling.z});
                 break;
             case Dimension::XYZM:
                 gaiaGetPointXYZM(gaiaGeometry->Coords, i, &x, &y, &z, &m);
-                geometry->AddPoint({x, y, z});
+                geometry->AddPoint({x * scaling.x, y * scaling.y, z * scaling.z});
                 break;
             }
         }
@@ -100,7 +101,7 @@ private:
     const GeometryType m_geometryType;
     const Dimension m_dimension;
     const SQLite::Statement& m_stmt;
-    const AttributesInfo& m_attributes;
+    const TableInfo& m_tableInfo;
 };
 
 class GeometryIterator
@@ -112,7 +113,7 @@ public:
         GeometryType geometryType, 
         Dimension dimension, 
         SQLite::Statement& stmt, 
-        const AttributesInfo& attributes
+        const TableInfo& tableInfo
     ) noexcept;
 
     GeometryIterator& operator++() noexcept;
@@ -123,7 +124,7 @@ private:
     const GeometryType m_geometryType;
     const Dimension m_dimension;
     SQLite::Statement* m_stmt;
-    const AttributesInfo* const m_attributes;
+    const TableInfo* const m_tableInfo;
 };
 
 /**
@@ -136,7 +137,7 @@ public:
         GeometryType geometryType, 
         Dimension dimension, 
         SQLite::Statement&& stmt, 
-        const AttributesInfo& attributes
+        const TableInfo& tableInfo
     ) noexcept;
 
     GeometryIterator begin();
@@ -146,7 +147,7 @@ private:
     const GeometryType m_geometryType;
     const Dimension m_dimension;
     SQLite::Statement m_stmt;
-    const AttributesInfo& m_attributes;
+    const TableInfo& m_tableInfo;
 };
 
 } // namespace SpatialiteDatasource

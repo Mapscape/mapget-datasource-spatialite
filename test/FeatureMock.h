@@ -20,24 +20,25 @@
 
 #pragma once
 
+#include "GeometriesView.h"
 #include <IFeature.h>
 
 #include <gtest/gtest.h>
-
 #include <gmock/gmock.h>
 
-using Geometries = std::vector<std::vector<mapget::Point>>;
+using MapgetGeometry = std::vector<mapget::Point>;
+using MapgetGeometries = std::vector<MapgetGeometry>;
 
 struct GeometryMock : SpatialiteDatasource::IGeometry
 {
-    explicit GeometryMock(std::vector<mapget::Point>& geometry) : geometry{geometry} {}
+    explicit GeometryMock(MapgetGeometry& geometry) : geometry{geometry} {}
 
     void AddPoint(const mapget::Point& point) override
     {
         geometry.push_back(point);
     }
 
-    std::vector<mapget::Point>& geometry;
+    MapgetGeometry& geometry;
 };
 
 template <typename T>
@@ -57,11 +58,19 @@ struct FeatureMock : SpatialiteDatasource::IFeature
         return std::make_unique<GeometryMock>(geometries.emplace_back());
     }
 
+    void AddGeometries(SpatialiteDatasource::GeometriesView& geometries)
+    {
+        for (auto g : geometries)
+        {
+            g.AddTo(*this);
+        }
+    }
+
     MOCK_METHOD(void, AddAttribute, (std::string_view name, int64_t value), (override));
     MOCK_METHOD(void, AddAttribute, (std::string_view name, double value), (override));
     MOCK_METHOD(void, AddAttribute, (std::string_view name, std::string_view value), (override));
 
-    Geometries geometries;
+    MapgetGeometries geometries;
     std::vector<SpatialiteDatasource::GeometryType> types;
     std::vector<size_t> initialCapacities;
 };

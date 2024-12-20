@@ -21,8 +21,8 @@
 add_compile_definitions(NAVINFO_INTERNAL_BUILD=$<BOOL:${NAVINFO_INTERNAL_BUILD}>)
 
 add_library(${PROJECT_NAME}-lib STATIC
-    AttributesInfo.h
-    AttributesInfo.cpp
+    TableInfo.h
+    TableInfo.cpp
     Datasource.h
     Datasource.cpp
     Database.h

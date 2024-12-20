@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "AttributesInfo.h"
+#include "TableInfo.h"
 
 #include <SQLiteCpp/Column.h>
 #include <fmt/format.h>

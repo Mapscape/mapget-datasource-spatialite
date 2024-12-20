@@ -21,7 +21,7 @@
 
 #include "Database.h"
 #include "GeometryType.h"
-#include "AttributesInfo.h"
+#include "TableInfo.h"
 
 #include <mapget/http-datasource/datasource-server.h>
 
@@ -55,6 +55,8 @@ public:
 private:
     [[nodiscard]] static mapget::DataSourceInfo LoadDataSourceInfoFromDatabase(const Database& db);
 
+    void LoadDefaultTablesInfo();
+    void LoadCoordinatesScaling(const nlohmann::json& coordinatesScalingConfig);
     void LoadAttributes(const nlohmann::json& attributesConfig);
     [[nodiscard]] AttributeInfo ParseAttributeInfo(const nlohmann::json& attributeDescription) const;
 
@@ -83,7 +85,7 @@ private:
 private:
     Database m_db;
     mapget::DataSourceServer m_ds;
-    mutable TablesAttributesInfo m_attributesInfo; // mutable because empty entries can be added
+    TablesInfo m_tablesInfo; // mutable because empty entries can be added
     const uint16_t m_port = 0;
 };
 

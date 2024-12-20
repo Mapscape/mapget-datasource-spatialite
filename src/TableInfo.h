@@ -48,14 +48,27 @@ struct Relation
 
 struct AttributeInfo
 {
-    ColumnType type;
-    std::optional<Relation> relation;
+    ColumnType type = ColumnType::Blob;
+    std::optional<Relation> relation{std::nullopt};
 };
 
 // attribute_name -> attribute_info
 using AttributesInfo = std::unordered_map<std::string, AttributeInfo>;
 
-// table_name -> attributes_info
-using TablesAttributesInfo = std::unordered_map<std::string, AttributesInfo>;
+struct ScalingInfo
+{
+    double x = 1;
+    double y = 1;
+    double z = 1;
+};
+
+struct TableInfo
+{
+    AttributesInfo attributes;
+    ScalingInfo scaling;
+};
+
+// table_name -> table_info
+using TablesInfo = std::unordered_map<std::string, TableInfo>;
 
 } // namespace SpatialiteDatasource

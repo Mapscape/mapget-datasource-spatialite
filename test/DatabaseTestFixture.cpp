@@ -1,7 +1,22 @@
-// Copyright (C) 2024 by NavInfo Europe B.V. The Netherlands - All rights reserved
-// Information classification: Confidential
-// This content is protected by international copyright laws.
-// Reproduction and distribution is prohibited without written permission.
+// Copyright (c) 2024 NavInfo Europe B.V.
+
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 #include "DatabaseTestFixture.h"
 
@@ -40,11 +55,12 @@ Table DatabaseTestFixture::InitializeDbWithEmptyGeometryTable(
 }
 
 Table DatabaseTestFixture::InitializeDbWithGeometries(
-    const std::string& geometry, 
-    SpatialiteDatasource::SpatialIndex spatialIndex,
-    const std::vector<std::string>& geometries)
+    const std::vector<std::string>& geometries,
+    SpatialiteDatasource::SpatialIndex spatialIndex
+)
 {
     auto table = CreateTable("table_with_geometries", {});
+    const auto geometry = std::get<std::string>(GetGeometryInfoFromGeometry(geometries[0]));
     table.AddGeometryColumn("geometry", geometry);
     table.CreateSpatialIndex(spatialIndex);
     for (const auto& geometry : geometries)
@@ -67,7 +83,7 @@ void DatabaseTestFixture::InitializeDb()
 )
 {
     return spatialiteDb->GetGeometries(
-        table.name, table.GetGeometryColumnName(), geometryType, dimension, emptyAttributesInfo, mbr);
+        table.name, table.GetGeometryColumnName(), geometryType, dimension, emptyTableInfo, mbr);
 }
 
 std::tuple<SpatialiteDatasource::GeometryType, SpatialiteDatasource::Dimension, std::string> GetGeometryInfoFromGeometry(
@@ -93,4 +109,23 @@ std::tuple<SpatialiteDatasource::GeometryType, SpatialiteDatasource::Dimension, 
     };
     const auto [geometryType, dimension] = GeometryTypes.at(spatialiteGeometryType);
     return {geometryType, dimension, std::move(spatialiteGeometryType)};
+}
+
+std::string_view SpatialIndexToString(SpatialiteDatasource::SpatialIndex index)
+{
+    using SpatialiteDatasource::SpatialIndex;
+
+    switch (index)
+    {
+    case SpatialIndex::None:
+        return "NoIndex";
+    case SpatialIndex::RTree:
+        return "RTreeIndex";
+    case SpatialIndex::MbrCache:
+        return "MBRCache";
+    case SpatialIndex::NavInfo:
+        return "NavInfo";
+    default:
+        throw std::logic_error{"Unknown param"};
+    }
 }

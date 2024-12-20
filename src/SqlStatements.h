@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "AttributesInfo.h"
+#include "TableInfo.h"
 #include "GeometryType.h"
 
 namespace SpatialiteDatasource {
