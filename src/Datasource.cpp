@@ -123,7 +123,8 @@ void Datasource::LoadDefaultTablesInfo()
     const auto tables = m_ds.info().layers_ | std::views::values | std::views::transform(GetTableNameFromLayerInfo);
     for (const auto&& table : tables)
     {
-        m_tablesInfo[table] = {};
+        m_tablesInfo[table];
+        m_featuresTilesByTable[table];
     }
 }
 
@@ -176,6 +177,20 @@ void Datasource::LoadAttributes(const nlohmann::json& attributesConfig)
     LogTablesInfo(m_tablesInfo);
 }
 
+[[nodiscard]] std::string Datasource::GetLayerIdFromTypeId(const std::string& typeId)
+{
+    // O(N), but N is quite small
+    for (const auto& [layer, layerInfo] : m_ds.info().layers_)
+    {
+        if (layerInfo->featureTypes_[0].name_ == typeId)
+        {
+            return layer;
+        }
+    }
+    mapget::log().error("Couldn't find layerId for typeId '{}'", typeId);
+    return "Unknown";
+}
+
 void Datasource::Run()
 {
     m_ds.onTileFeatureRequest(
@@ -183,11 +198,25 @@ void Datasource::Run()
         {
             try 
             {
-                Fill(tile);
+                FillTileWithGeometries(tile);
             }
             catch (const std::exception& e)
             {
                 mapget::log().error(e.what());
+            }
+        }
+    );
+    m_ds.onLocateRequest(
+        [this](const auto& request) -> std::vector<mapget::LocateResponse>
+        {
+            try 
+            {
+                return LocateFeature(request);
+            }
+            catch (const std::exception& e)
+            {
+                mapget::log().error(e.what());
+                return {};
             }
         }
     );
@@ -276,7 +305,7 @@ static Dimension GetDimension(int spatialiteType)
     return static_cast<Dimension>(dimension);
 }
 
-void Datasource::Fill(const mapget::TileFeatureLayer::Ptr& tile) const
+void Datasource::FillTileWithGeometries(const mapget::TileFeatureLayer::Ptr& tile)
 {
     const auto layerInfo = tile->layerInfo();
     for (const auto& featureType : layerInfo->featureTypes_)
@@ -292,7 +321,7 @@ void Datasource::CreateGeometries(
     const std::string& tableName, 
     const std::string& geometryColumn,
     GeometryType geometryType,
-    Dimension dimension) const
+    Dimension dimension)
 {
     const auto tid = tile->tileId();
     const Mbr mbr{
@@ -301,13 +330,50 @@ void Datasource::CreateGeometries(
         .xmax = tid.ne().x,
         .ymax = tid.ne().y
     };
+
+    constexpr size_t FeaturesBufferSize = 300;
+    std::vector<int> featuresIds;
+    featuresIds.reserve(FeaturesBufferSize);
+
     auto geometries = m_db.GetGeometries(tableName, geometryColumn, geometryType, dimension, m_tablesInfo.at(tableName), mbr);
     for (auto geometry : geometries)
     {
-        auto feature = tile->newFeature(tableName, {{"id", geometry.GetId()}});
+        const auto featureId = geometry.GetId();
+        auto feature = tile->newFeature(tableName, {{"id", featureId}});
         MapgetFeature geometryFabric{*feature};
         geometry.AddTo(geometryFabric);
+        featuresIds.push_back(featureId);
     }
+    auto& [lock, map] = m_featuresTilesByTable.at(tableName);
+    {
+        std::lock_guard lockGuard{lock};
+        for (const auto featureId : featuresIds)
+        {
+            map[featureId] = tid; // overwriting is fine
+        }
+    }
+}
+
+[[nodiscard]] std::vector<mapget::LocateResponse> Datasource::LocateFeature(const mapget::LocateRequest& request)
+{
+    std::vector<mapget::LocateResponse> responses;
+    const auto& table = request.typeId_;
+    const auto featureId = request.getIntIdPart("id");
+    if (featureId == std::nullopt)
+    {
+        throw std::runtime_error(fmt::format(
+            "Failed to process /locate request:\n{}", request.serialize().dump(2)));
+    }
+    auto& response = responses.emplace_back(request);
+    response.tileKey_.layerId_ = GetLayerIdFromTypeId(request.typeId_);
+
+    auto& [lock, map] = m_featuresTilesByTable.at(table);
+    {
+        std::shared_lock lockGuard{lock};
+        response.tileKey_.tileId_ = map.at(static_cast<int>(*featureId));
+    }
+
+    return responses;
 }
 
 } // namespace SpatialiteDatasource
