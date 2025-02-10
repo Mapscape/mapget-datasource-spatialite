@@ -53,6 +53,14 @@ public:
     void Run();
 
 private:
+    struct FeatureTileMapThreadSafe
+    {
+        std::shared_mutex lock;
+        std::unordered_map<int /* featureId */, mapget::TileId> map;
+    };
+
+    [[nodiscard]] std::string GetLayerIdFromTypeId(const std::string& typeId);
+
     [[nodiscard]] static mapget::DataSourceInfo LoadDataSourceInfoFromDatabase(const Database& db);
 
     void LoadDefaultTablesInfo();
@@ -65,7 +73,12 @@ private:
      * 
      * @param tile Tile to create geometries in
      */
-    void Fill(const mapget::TileFeatureLayer::Ptr& tile) const;
+    void FillTileWithGeometries(const mapget::TileFeatureLayer::Ptr& tile);
+
+    /**
+     * @brief Process Mapget '/locate' request
+     */
+    [[nodiscard]] std::vector<mapget::LocateResponse> LocateFeature(const mapget::LocateRequest& request);
 
     /**
      * @brief Create geometries on the tile
@@ -81,11 +94,14 @@ private:
         const std::string& tableName, 
         const std::string& geometryColumn,
         GeometryType geometryType,
-        Dimension dimension) const;
+        Dimension dimension);
 private:
     Database m_db;
     mapget::DataSourceServer m_ds;
-    TablesInfo m_tablesInfo; // mutable because empty entries can be added
+    TablesInfo m_tablesInfo;
+    std::unordered_map<
+        std::string, // typeId (table)
+        FeatureTileMapThreadSafe> m_featuresTilesByTable;
     const uint16_t m_port = 0;
 };
 
