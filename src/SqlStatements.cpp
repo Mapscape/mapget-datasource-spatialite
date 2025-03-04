@@ -121,7 +121,7 @@ std::string GetAttributesMatchCondition(const AttributesInfo& attributesInfo)
 
 } // namespace
 
-std::string GetSqlQuery(
+std::string BuildSqlQuery(
     const std::string& tableName, 
     const std::string& primaryKey, 
     const std::string& geometryColumn, 

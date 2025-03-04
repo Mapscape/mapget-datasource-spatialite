@@ -39,12 +39,8 @@ Database::Database(const std::filesystem::path& dbPath)
 {
     m_spatialiteCache = spatialite_alloc_connection();
     spatialite_init_ex(m_db.getHandle(), m_spatialiteCache, 0);
-
-    for (const auto& table : GetTablesNames())
-    {
-        m_primaryKeys[table] = GetPrimaryKeyColumnName(table);
-    }
 }
+
 Database::~Database()
 {
     spatialite_cleanup_ex(m_spatialiteCache);
@@ -117,22 +113,14 @@ Database::~Database()
     return m_db.getFilename();
 }
 
-[[nodiscard]] AttributesInfo Database::GetTableAttributes(const std::string& tableName) const
+void Database::FillTableAttributes(TableInfo& tableInfo) const
 {
-    AttributesInfo info;
-    const auto tableNameLower = boost::to_lower_copy(tableName);
-
-    const auto pkNameIter = m_primaryKeys.find(tableNameLower);
-    if (pkNameIter == m_primaryKeys.end())
-        throw std::runtime_error{fmt::format("Can't find primary key column name for table '{}'", tableName)};
-    const auto geometryColumn = GetGeometryColumnName(tableNameLower);
-
     // PRAGMA_TABLE_INFO gives unreliable results that may differ 
     // from version to version and depends on the way a table was created,
     // so it's easier to get a row from the table and check types by sqlite API
     SQLite::Statement stmt{m_db, fmt::format(R"SQL(
         SELECT * FROM {} LIMIT 1;
-    )SQL", tableNameLower)};
+    )SQL", tableInfo.name)};
     if (stmt.executeStep()) // if no - table is empty, return empty info
     {
         for (int i = 0; i < stmt.getColumnCount(); ++i)
@@ -140,12 +128,11 @@ Database::~Database()
             const auto column = stmt.getColumn(i);
             const std::string name = column.getName();
             // skip id and geometry
-            if (boost::iequals(name, pkNameIter->second) || boost::iequals(name, geometryColumn))
+            if (boost::iequals(name, tableInfo.primaryKey) || boost::iequals(name, tableInfo.geometryColumn))
                 continue;
-            info[name] = {.type = ColumnTypeFromSqlType(column.getType())};
+            tableInfo.attributes[name] = {.type = ColumnTypeFromSqlType(column.getType())};
         }
     }
-    return info;
 }
 
 [[nodiscard]] ColumnType Database::GetColumnType(const std::string& tableName, const std::string& columnName) const
@@ -162,27 +149,14 @@ Database::~Database()
     return ColumnTypeFromSqlType(stmt.getColumn(0).getType());
 }
 
-[[nodiscard]] GeometriesView Database::GetGeometries(
-    const std::string& tableName, 
-    const std::string& geometryColumn,
-    GeometryType geometryType,
-    Dimension dimension,
-    const TableInfo& tableInfo,
-    const Mbr& mbr) const
+[[nodiscard]] GeometriesView Database::GetGeometries(const TableInfo& tableInfo, const Mbr& mbr) const
 {
-    const auto indexType = GetSpatialIndexType(tableName);
-    SQLite::Statement stmt{m_db, GetSqlQuery(
-        tableName, 
-        m_primaryKeys.at(tableName), 
-        geometryColumn, 
-        tableInfo.attributes, 
-        indexType)
-    };
+    SQLite::Statement stmt{m_db, tableInfo.GetSqlQuery()};
     double xScaling = 1;
     double yScaling = 1;
     // NavInfo index always works with the original coordinates,
     // so we must not scale MBR coordinates here
-    if (indexType != SpatialIndex::NavInfo)
+    if (tableInfo.spatialIndex != SpatialIndex::NavInfo)
     {
         xScaling = tableInfo.scaling.x;
         yScaling = tableInfo.scaling.y;
@@ -192,7 +166,7 @@ Database::~Database()
     stmt.bind("@xMax", mbr.xmax / xScaling);
     stmt.bind("@yMax", mbr.ymax / yScaling);
     mapget::log().debug("Getting geometries with an SQL query: {}", stmt.getExpandedSQL());
-    return GeometriesView{geometryType, dimension, std::move(stmt), tableInfo};
+    return GeometriesView{std::move(stmt), tableInfo};
 }
 
 [[nodiscard]] std::string Database::GetPrimaryKeyColumnName(const std::string& tableName) const

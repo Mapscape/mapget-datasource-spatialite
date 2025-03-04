@@ -193,7 +193,7 @@ INSTANTIATE_TEST_SUITE_P(Database, SpatialiteDatabaseGeometriesTest, testing::Co
 TEST_P(SpatialiteDatabaseGeometriesTest, GeometriesAreCreated)
 {
     const auto& [geometries, index] = GetParam();
-    const auto table = InitializeDbWithGeometries(geometries.inputGeometries, index);
+    auto table = InitializeDbWithGeometries(geometries.inputGeometries, index);
     
     const auto [geometryType, dimension, geometryTypeStr] = GetGeometryInfoFromGeometry(geometries.inputGeometries[0]);
     auto resultGeometries = GetGeometries(geometryType, dimension, table);

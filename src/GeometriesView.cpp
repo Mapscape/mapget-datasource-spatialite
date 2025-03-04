@@ -43,15 +43,8 @@ static std::string BlobToHex(const void* ptr, int size)
     return hex;
 }
 
-Geometry::Geometry(
-    GeometryType geometryType, 
-    Dimension dimension,
-    const SQLite::Statement& stmt,
-    const TableInfo& tableInfo
-) noexcept 
-    : m_geometryType{geometryType}
-    , m_dimension{dimension}
-    , m_stmt{stmt}
+Geometry::Geometry(const SQLite::Statement& stmt, const TableInfo& tableInfo) noexcept 
+    : m_stmt{stmt}
     , m_tableInfo{tableInfo}
 {}
 
@@ -65,7 +58,7 @@ void Geometry::AddTo(IFeature& feature)
     AddAttributesTo(feature);
 
     const auto geomPtr = GetGaiaPtr(m_stmt);
-    switch (m_geometryType)
+    switch (m_tableInfo.geometryType)
     {
     case GeometryType::Point:
         AddPointTo(geomPtr->FirstPoint, feature);
@@ -113,9 +106,9 @@ void Geometry::AddAttributesTo(IFeature& feature)
 
 void Geometry::AddPointTo(gaiaPointPtr point, IFeature& feature)
 {
-    auto geometry = feature.AddGeometry(m_geometryType, 1);
+    auto geometry = feature.AddGeometry(m_tableInfo.geometryType, 1);
     const auto& scaling = m_tableInfo.scaling;
-    switch (m_dimension)
+    switch (m_tableInfo.dimension)
     {
     case Dimension::XY:
     case Dimension::XYM:
@@ -152,22 +145,8 @@ void Geometry::AddMultiPolygonTo(gaiaPolygonPtr firstPolygon, IFeature& feature)
     }
 }
 
-GeometryIterator::GeometryIterator() noexcept
-    : m_geometryType{GeometryType::Point}
-    , m_dimension{Dimension::XY}
-    , m_stmt{nullptr}
-    , m_tableInfo{nullptr}
-{}
-
-GeometryIterator::GeometryIterator(
-    GeometryType geometryType, 
-    Dimension dimension, 
-    SQLite::Statement& stmt, 
-    const TableInfo& tableInfo
-) noexcept
-    : m_geometryType{geometryType}
-    , m_dimension{dimension}
-    , m_stmt{&stmt}
+GeometryIterator::GeometryIterator(SQLite::Statement& stmt, const TableInfo& tableInfo) noexcept
+    : m_stmt{&stmt}
     , m_tableInfo{&tableInfo}
 {}
 
@@ -179,7 +158,7 @@ GeometryIterator& GeometryIterator::operator++() noexcept
 }
 [[nodiscard]] Geometry GeometryIterator::operator*() const noexcept
 {
-    return Geometry{m_geometryType, m_dimension, *m_stmt, *m_tableInfo};
+    return Geometry{*m_stmt, *m_tableInfo};
 
 }
 [[nodiscard]] bool GeometryIterator::operator==(const GeometryIterator& other) const noexcept
@@ -187,22 +166,15 @@ GeometryIterator& GeometryIterator::operator++() noexcept
     return m_stmt == other.m_stmt;
 }
 
-GeometriesView::GeometriesView(
-    GeometryType geometryType, 
-    Dimension dimension, 
-    SQLite::Statement&& stmt, 
-    const TableInfo& tableInfo
-) noexcept 
-    : m_geometryType{geometryType}
-    , m_dimension{dimension}
-    , m_stmt{std::move(stmt)}
+GeometriesView::GeometriesView(SQLite::Statement&& stmt, const TableInfo& tableInfo) noexcept 
+    : m_stmt{std::move(stmt)}
     , m_tableInfo{tableInfo}
 {}
 
 GeometryIterator GeometriesView::begin()
 {
     if (m_stmt.executeStep())
-        return GeometryIterator{m_geometryType, m_dimension, m_stmt, m_tableInfo};
+        return GeometryIterator{m_stmt, m_tableInfo};
     else
         return {};
 }
