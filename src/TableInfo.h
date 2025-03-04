@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include "GeometryType.h"
+
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -62,10 +64,27 @@ struct ScalingInfo
     double z = 1;
 };
 
+struct Database;
+
 struct TableInfo
 {
+    TableInfo() = default;
+    TableInfo(const std::string& name, const Database& db);
+
+    const std::string& GetSqlQuery() const;
+
+    std::string name;
+    std::string primaryKey;
+    std::string geometryColumn;
+    GeometryType geometryType = GeometryType::Point;
+    Dimension dimension = Dimension::XY;
+    SpatialIndex spatialIndex = SpatialIndex::None;
+
     AttributesInfo attributes;
     ScalingInfo scaling;
+
+private:
+    mutable std::string m_sqlQuery;
 };
 
 // table_name -> table_info

@@ -79,11 +79,10 @@ void DatabaseTestFixture::InitializeDb()
 [[nodiscard]] SpatialiteDatasource::GeometriesView DatabaseTestFixture::GetGeometries(
     SpatialiteDatasource::GeometryType geometryType, 
     SpatialiteDatasource::Dimension dimension, 
-    const Table& table
+    Table& table
 )
 {
-    return spatialiteDb->GetGeometries(
-        table.name, table.GetGeometryColumnName(), geometryType, dimension, emptyTableInfo, mbr);
+    return spatialiteDb->GetGeometries(table.UpdateAndGetTableInfo(geometryType, dimension), mbr);
 }
 
 std::tuple<SpatialiteDatasource::GeometryType, SpatialiteDatasource::Dimension, std::string> GetGeometryInfoFromGeometry(

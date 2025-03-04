@@ -89,12 +89,7 @@ private:
      * @param geometryType Type of the geometries @sa GeometryType.h
      * @param dimension Dimension of the geometries (2D/3D)
      */
-    void CreateGeometries(
-        const mapget::TileFeatureLayer::Ptr& tile, 
-        const std::string& tableName, 
-        const std::string& geometryColumn,
-        GeometryType geometryType,
-        Dimension dimension);
+    void CreateGeometries(const mapget::TileFeatureLayer::Ptr& tile, const TableInfo& tableInfo);
 private:
     Database m_db;
     mapget::DataSourceServer m_ds;

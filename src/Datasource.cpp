@@ -123,7 +123,7 @@ void Datasource::LoadDefaultTablesInfo()
     const auto tables = m_ds.info().layers_ | std::views::values | std::views::transform(GetTableNameFromLayerInfo);
     for (const auto&& table : tables)
     {
-        m_tablesInfo[table];
+        m_tablesInfo.emplace(std::piecewise_construct, std::forward_as_tuple(table), std::forward_as_tuple(table, m_db));
         m_featuresTilesByTable[table];
     }
 }
@@ -155,23 +155,23 @@ void Datasource::LoadAttributes(const nlohmann::json& attributesConfig)
     for (const auto& [layer, layerInfo] : m_ds.info().layers_)
     {
         const auto table = GetTableNameFromLayerInfo(layerInfo);
-        auto& attributesInfo = m_tablesInfo.at(table).attributes;
+        auto& tableInfo = m_tablesInfo.at(table);
         const auto layerAttributesInfo = attributesConfig.find(layer);
         if (layerAttributesInfo != attributesConfig.end())
         {
             const auto getFromDbFlag = layerAttributesInfo->value("getRemainingAttributesFromDb", true);
             if (getFromDbFlag)
             {
-                attributesInfo = m_db.GetTableAttributes(table);
+                m_db.FillTableAttributes(tableInfo);
             }
             for (const auto& [attributeName, attributeDescription] : layerAttributesInfo->at("attributes").items())
             {
-                attributesInfo[attributeName] = ParseAttributeInfo(attributeDescription);
+                tableInfo.attributes[attributeName] = ParseAttributeInfo(attributeDescription);
             }
         }
         else
         {
-            attributesInfo = m_db.GetTableAttributes(table);
+            m_db.FillTableAttributes(tableInfo);
         }
     }
     LogTablesInfo(m_tablesInfo);
@@ -289,39 +289,22 @@ void Datasource::Run()
     return attribute;
 }
 
-static GeometryType GetGeometryType(int spatialiteType)
-{
-    int geometry = spatialiteType % 1'000;
-    if (geometry < static_cast<int>(GeometryType::Point) || geometry > static_cast<int>(GeometryType::MultiPolygon))
-        throw std::runtime_error{fmt::format("Unknown spatialite geometry type: {}", spatialiteType)};
-    return static_cast<GeometryType>(geometry);
-}
-
-static Dimension GetDimension(int spatialiteType)
-{
-    int dimension = spatialiteType / 1'000;
-    if (dimension < static_cast<int>(Dimension::XY) || dimension > static_cast<int>(Dimension::XYZM))
-        throw std::runtime_error{fmt::format("Can't get dimension from spatialite geometry type: {}", spatialiteType)};
-    return static_cast<Dimension>(dimension);
-}
-
 void Datasource::FillTileWithGeometries(const mapget::TileFeatureLayer::Ptr& tile)
 {
     const auto layerInfo = tile->layerInfo();
     for (const auto& featureType : layerInfo->featureTypes_)
     {
         const auto& tableName = featureType.name_;
-        auto [geomColumn, geomType] = m_db.GetGeometryColumnInfo(tableName);
-        CreateGeometries(tile, tableName, geomColumn, GetGeometryType(geomType), GetDimension(geomType));
+        const auto tableInfoIt = m_tablesInfo.find(tableName);
+        if (tableInfoIt == m_tablesInfo.end())
+        {
+            throw std::runtime_error{fmt::format("Unknown table '{}'", tableName)};
+        }
+        CreateGeometries(tile, tableInfoIt->second);
     }
 }
 
-void Datasource::CreateGeometries(
-    const mapget::TileFeatureLayer::Ptr& tile, 
-    const std::string& tableName, 
-    const std::string& geometryColumn,
-    GeometryType geometryType,
-    Dimension dimension)
+void Datasource::CreateGeometries(const mapget::TileFeatureLayer::Ptr& tile, const TableInfo& tableInfo)
 {
     const auto tid = tile->tileId();
     const Mbr mbr{
@@ -335,16 +318,16 @@ void Datasource::CreateGeometries(
     std::vector<int> featuresIds;
     featuresIds.reserve(FeaturesBufferSize);
 
-    auto geometries = m_db.GetGeometries(tableName, geometryColumn, geometryType, dimension, m_tablesInfo.at(tableName), mbr);
+    auto geometries = m_db.GetGeometries(tableInfo, mbr);
     for (auto geometry : geometries)
     {
         const auto featureId = geometry.GetId();
-        auto feature = tile->newFeature(tableName, {{"id", featureId}});
+        auto feature = tile->newFeature(tableInfo.name, {{"id", featureId}});
         MapgetFeature geometryFabric{*feature};
         geometry.AddTo(geometryFabric);
         featuresIds.push_back(featureId);
     }
-    auto& [lock, map] = m_featuresTilesByTable.at(tableName);
+    auto& [lock, map] = m_featuresTilesByTable.at(tableInfo.name);
     {
         std::lock_guard lockGuard{lock};
         for (const auto featureId : featuresIds)

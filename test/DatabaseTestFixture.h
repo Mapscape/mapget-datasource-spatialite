@@ -51,12 +51,11 @@ public:
     [[nodiscard]] SpatialiteDatasource::GeometriesView GetGeometries(
         SpatialiteDatasource::GeometryType geometryType, 
         SpatialiteDatasource::Dimension dimension, 
-        const Table& table);
+        Table& table);
 
     std::unique_ptr<SpatialiteDatasource::Database> spatialiteDb;
 
     static constexpr SpatialiteDatasource::Mbr mbr{0, 0, 100, 100};
-    inline static const SpatialiteDatasource::TableInfo emptyTableInfo{};
 private:
     static std::unique_ptr<TestDbDriver> testDb;
 };

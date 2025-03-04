@@ -62,23 +62,15 @@ TEST_P(SpatialiteDatabaseAttributesTest, AttributesAreAddedToFeature)
     table.Insert(42, 6.66, "value", Binary{"DEADBEEF"}, Geometry{geometry});
     InitializeDb();
 
-    SpatialiteDatasource::TableInfo tableInfo{
-        .attributes = {
+    auto& tableInfo = table.UpdateAndGetTableInfo(geometryType, dimension);
+    tableInfo.attributes = {
             {"intAttribute", {ColumnType::Int64}},
             {"doubleAttribute", {ColumnType::Double}},
             {"stringAttribute", {ColumnType::Text}},
             {"blobAttribute", {ColumnType::Blob}}
-        },
-        .scaling = {}
     };
 
-    auto geometries = spatialiteDb->GetGeometries(
-        table.name,
-        table.GetGeometryColumnName(),
-        geometryType,
-        dimension,
-        tableInfo,
-        mbr);
+    auto geometries = spatialiteDb->GetGeometries(tableInfo, mbr);
 
     FeatureMock featureMock;
     {
@@ -103,15 +95,11 @@ public:
         return table;
     }
 
-    auto GetGeometries(const Table& geometryTable, const SpatialiteDatasource::TableInfo& tableInfo)
+    auto GetGeometries(Table& geometryTable, SpatialiteDatasource::AttributesInfo&& attributesInfo)
     {
-        return spatialiteDb->GetGeometries(
-        geometryTable.name,
-        geometryTable.GetGeometryColumnName(),
-        SpatialiteDatasource::GeometryType::Point,
-        SpatialiteDatasource::Dimension::XY,
-        tableInfo,
-        mbr);
+        auto& tableInfo = geometryTable.UpdateAndGetTableInfo(SpatialiteDatasource::GeometryType::Point, SpatialiteDatasource::Dimension::XY);
+        tableInfo.attributes = std::move(attributesInfo);
+        return spatialiteDb->GetGeometries(tableInfo, mbr);
     }
 };
 
@@ -122,16 +110,13 @@ TEST_F(SpatialiteDatabaseAttributesRelationsTest, SingleColumnRelatedAttributeIs
     relatedTable.Insert(666, 42);
     InitializeDb();
 
-    SpatialiteDatasource::TableInfo tableInfo{
-        .attributes = {{"attribute",
+    auto geometries = GetGeometries(geometryTable, 
+        {{"attribute",
          {ColumnType::Int64,
           SpatialiteDatasource::Relation{
               .columns = {"related_table.meaningfulNumber"},
               .delimiter = ";",
-              .matchCondition = "layerTable.myEnum == related_table.value"}}}},
-        .scaling = {}
-    };
-    auto geometries = GetGeometries(geometryTable, tableInfo);
+                .matchCondition = "layerTable.myEnum == related_table.value"}}}});
 
     FeatureMock featureMock;
     EXPECT_CALL(featureMock, AddAttribute("attribute", testing::TypedEq<int64_t>(666))).Times(1);
@@ -145,16 +130,13 @@ TEST_F(SpatialiteDatabaseAttributesRelationsTest, MultiColumnSingleTableRelatedA
     relatedTable.Insert(666, "spasibo", 42);
     InitializeDb();
 
-    SpatialiteDatasource::TableInfo tableInfo{
-        .attributes = {{"attribute",
+    auto geometries = GetGeometries(geometryTable,
+        {{"attribute",
          {ColumnType::Text,
           SpatialiteDatasource::Relation{
               .columns = {"related_table.meaningfulString", "related_table.meaningfulNumber"},
               .delimiter = " - ",
-              .matchCondition = "layerTable.myEnum == related_table.value"}}}},
-        .scaling = {}
-    };
-    auto geometries = GetGeometries(geometryTable, tableInfo);
+                 .matchCondition = "layerTable.myEnum == related_table.value"}}}});
 
     FeatureMock featureMock;
     EXPECT_CALL(featureMock, AddAttribute("attribute", testing::TypedEq<std::string_view>("spasibo - 666"))).Times(1);
@@ -170,16 +152,13 @@ TEST_F(SpatialiteDatabaseAttributesRelationsTest, MultiColumnMultiTableRelatedAt
     relatedTable2.Insert(333, 42);
     InitializeDb();
 
-    SpatialiteDatasource::TableInfo tableInfo{
-        .attributes = {{"attribute",
+    auto geometries = GetGeometries(geometryTable, 
+        {{"attribute",
          {ColumnType::Text,
           SpatialiteDatasource::Relation{
               .columns = {"related_table2.meaningfulNumber", "related_table1.meaningfulNumber"},
               .delimiter = "*2=",
-              .matchCondition = "layerTable.myEnum == related_table1.value AND layerTable.myEnum == related_table2.value"}}}},
-        .scaling = {}
-    };
-    auto geometries = GetGeometries(geometryTable, tableInfo);
+                 .matchCondition = "layerTable.myEnum == related_table1.value AND layerTable.myEnum == related_table2.value"}}}});
 
     FeatureMock featureMock;
     EXPECT_CALL(featureMock, AddAttribute("attribute", testing::TypedEq<std::string_view>("333*2=666"))).Times(1);

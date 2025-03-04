@@ -41,12 +41,7 @@ concept LinelikeGeometryPtr = (std::same_as<T, gaiaLinestringPtr> || std::same_a
 class Geometry
 {
 public:
-    Geometry(
-        GeometryType geometryType, 
-        Dimension dimension,
-        const SQLite::Statement& stmt,
-        const TableInfo& tableInfo
-    ) noexcept;
+    Geometry(const SQLite::Statement& stmt, const TableInfo& tableInfo) noexcept;
 
     /**
      * @brief Get the id of the geometry (primary key)
@@ -70,12 +65,12 @@ private:
     template <Detail::LinelikeGeometryPtr T>
     void AddLineOrPolygonTo(T gaiaGeometry, IFeature& feature)
     {
-        auto geometry = feature.AddGeometry(m_geometryType, gaiaGeometry->Points);
+        auto geometry = feature.AddGeometry(m_tableInfo.geometryType, gaiaGeometry->Points);
         const auto& scaling = m_tableInfo.scaling;
         for (int i = 0; i < gaiaGeometry->Points; ++i)
         {
             double x, y, z, m;
-            switch (m_dimension)
+            switch (m_tableInfo.dimension)
             {
             case Dimension::XY:
                 gaiaGetPoint(gaiaGeometry->Coords, i, &x, &y);
@@ -98,8 +93,6 @@ private:
     }
 
 private:
-    const GeometryType m_geometryType;
-    const Dimension m_dimension;
     const SQLite::Statement& m_stmt;
     const TableInfo& m_tableInfo;
 };
@@ -107,11 +100,9 @@ private:
 class GeometryIterator
 {
 public:
-    GeometryIterator() noexcept;
+    GeometryIterator() noexcept = default;
 
     GeometryIterator(
-        GeometryType geometryType, 
-        Dimension dimension, 
         SQLite::Statement& stmt, 
         const TableInfo& tableInfo
     ) noexcept;
@@ -121,10 +112,8 @@ public:
     [[nodiscard]] bool operator==(const GeometryIterator& other) const noexcept;
 
 private:
-    const GeometryType m_geometryType;
-    const Dimension m_dimension;
-    SQLite::Statement* m_stmt;
-    const TableInfo* const m_tableInfo;
+    SQLite::Statement* m_stmt{nullptr};
+    const TableInfo* const m_tableInfo{nullptr};
 };
 
 /**
@@ -134,8 +123,6 @@ class GeometriesView
 {
 public:
     GeometriesView(
-        GeometryType geometryType, 
-        Dimension dimension, 
         SQLite::Statement&& stmt, 
         const TableInfo& tableInfo
     ) noexcept;
@@ -144,8 +131,6 @@ public:
     GeometryIterator end() const noexcept;
 
 private:
-    const GeometryType m_geometryType;
-    const Dimension m_dimension;
     SQLite::Statement m_stmt;
     const TableInfo& m_tableInfo;
 };

@@ -74,20 +74,11 @@ INSTANTIATE_TEST_SUITE_P(Database, SpatialiteDatabaseScalingTest, testing::Combi
 TEST_P(SpatialiteDatabaseScalingTest, ScaledGeometriesAreAddedToFeature)
 {
     const auto& [geometry, scaling, expectedGeometry] = std::get<0>(GetParam());
-    const auto table = InitializeDbWithGeometries({geometry});
-    SpatialiteDatasource::TableInfo tableInfo{
-        .attributes = {},
-        .scaling = scaling
-    };
+    auto table = InitializeDbWithGeometries({geometry});
     const auto [geometryType, dimension, geometryTypeStr] = GetGeometryInfoFromGeometry(geometry);
-    auto geometries = spatialiteDb->GetGeometries(
-        table.name,
-        table.GetGeometryColumnName(),
-        geometryType,
-        dimension,
-        tableInfo,
-        Mbr
-    );
+    auto& tableInfo = table.UpdateAndGetTableInfo(geometryType, dimension);
+    tableInfo.scaling = scaling;
+    auto geometries = spatialiteDb->GetGeometries(tableInfo, Mbr);
     FeatureMock featureMock;
     featureMock.AddGeometries(geometries);
     ASSERT_EQ(featureMock.geometries.size(), 1);

@@ -80,9 +80,9 @@ public:
     [[nodiscard]] const std::string& GetDatabaseFilePath() const;
 
     /**
-     * @brief Get a description of additional attributes (all columns besides primary key and geometry)
+     * @brief Fill a description of additional attributes (all columns besides primary key and geometry)
      */
-    [[nodiscard]] AttributesInfo GetTableAttributes(const std::string& tableName) const;
+    void FillTableAttributes(TableInfo& tableInfo) const;
 
     /**
      * @brief Get the type of the column
@@ -91,6 +91,20 @@ public:
      * @param columnName Column name (full name with the table or short name)
      */
     [[nodiscard]] ColumnType GetColumnType(const std::string& tableName, const std::string& columnName) const;
+
+    /**
+     * @brief Get the primary key column name of the table
+     * 
+     * @param tableName Table name
+     */
+    [[nodiscard]] std::string GetPrimaryKeyColumnName(const std::string& tableName) const;
+
+    /**
+     * @brief Get the geometry column name of the table
+     * 
+     * @param tableName Table name
+     */
+    [[nodiscard]] std::string GetGeometryColumnName(const std::string& tableName) const;
 
     /**
      * @brief Get geometries within MBR
@@ -103,21 +117,11 @@ public:
      * @param mbr Minimum bounding rectangle
      * @return Geometry view that iterates over geometries
      */
-    [[nodiscard]] GeometriesView GetGeometries(
-        const std::string& tableName, 
-        const std::string& geometryColumn,
-        GeometryType geometryType,
-        Dimension dimension,
-        const TableInfo& tableInfo,
-        const Mbr& mbr) const;
-private:
-    [[nodiscard]] std::string GetPrimaryKeyColumnName(const std::string& tableName) const;
-    [[nodiscard]] std::string GetGeometryColumnName(const std::string& tableName) const;
+    [[nodiscard]] GeometriesView GetGeometries(const TableInfo& tableInfo, const Mbr& mbr) const;
 
 private:
     const SQLite::Database m_db;
     void* m_spatialiteCache;
-    std::unordered_map<std::string, std::string> m_primaryKeys;
 };
 
 } // namespace SpatialiteDatasource

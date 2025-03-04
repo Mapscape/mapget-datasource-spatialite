@@ -35,7 +35,7 @@ namespace SpatialiteDatasource {
  * @param spatialIndex Spatial index type to use
  * @return SQL query as std::string
  */
-std::string GetSqlQuery(
+std::string BuildSqlQuery(
     const std::string& tableName, 
     const std::string& primaryKey, 
     const std::string& geometryColumn, 
