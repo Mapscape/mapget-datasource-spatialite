@@ -6,7 +6,7 @@ This project represents a datasource for [Mapget](https://github.com/ndsev/mapge
 
 Usage:
 ```
-  --help                 produce help message
+  -h [ --help ]          produce help message
   -m [ --map ] arg       path to a spatialite database to use
   -p [ --port ] arg (=0) http server port
   -c [ --config ] arg    path to a datasource config in json format (will retrieve the info from the db if not provided)
