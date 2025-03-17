@@ -42,22 +42,34 @@ int main(int argc, char** argv)
     std::filesystem::path mapPath, configPath;
     uint16_t port;
     bool isVerbose, isNoAttributes;
+
     po::options_description description{"Allowed options"};
     description.add_options()
-        ("help", "produce help message")
-        ("map,m", po::value(&mapPath), "path to a spatialite database to use")
+        ("help,h", "produce help message")
+        ("map,m", po::value(&mapPath)->required(), "path to a spatialite database to use")
         ("port,p", po::value(&port)->default_value(0), "http server port")
         ("config,c", po::value(&configPath), "path to a datasource config in json format (will retrieve the info from the db if not provided)")
         ("no-attributes", po::bool_switch(&isNoAttributes), "do not add any attributes to features")
         ("verbose,v", po::bool_switch(&isVerbose), "enable debug logs");
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, description), vm);
-    po::notify(vm);
 
-    if (vm.count("help"))
+    try 
     {
-        std::cout << description << std::endl;
-        return 1;
+        po::variables_map vm;
+        po::store(po::parse_command_line(argc, argv, description), vm);
+
+        if (vm.count("help"))
+        {
+            std::cout << description << std::endl;
+            return 1;
+        }
+
+        po::notify(vm);
+    }
+    catch (std::exception& e)
+    {
+        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << description << std::endl;
+        return -1;
     }
 
     if (isVerbose)
