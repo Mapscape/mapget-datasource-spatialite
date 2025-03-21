@@ -108,11 +108,6 @@ Database::~Database()
     return tables;
 }
 
-[[nodiscard]] const std::string& Database::GetDatabaseFilePath() const
-{
-    return m_db.getFilename();
-}
-
 void Database::FillTableAttributes(TableInfo& tableInfo) const
 {
     // PRAGMA_TABLE_INFO gives unreliable results that may differ 

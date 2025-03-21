@@ -1,0 +1,76 @@
+map:
+  type: dict
+  schema:
+    name:
+      type: string
+    path:
+      type: string
+
+datasourcePort:
+  type: integer
+  default: 0
+
+layers:
+  type: list
+  schema:
+    type: dict
+    schema:
+      table:
+        type: string
+        required: true
+      name:
+        type: string
+      attributes:
+        type: list
+        schema:
+          type: dict
+          schema:
+            name:
+              type: string
+              required: true
+            type:
+              type: string
+              allowed: [integer, float, text, blob]
+            relation:
+              type: dict
+              schema:
+                relatedColumns:
+                  type: list
+                  required: true
+                  schema:
+                    type: string
+                delimiter:
+                  type: string
+                  default: '|'
+                matchCondition:
+                  type: string
+                  required: true
+      loadRemainingAttributesFromDb:
+        type: boolean
+        default: true
+      coordinatesScaling:
+        type: dict
+        keysrules:
+          type: string
+          regex: ^(x|y|z|xy|yz|xyz)$
+        valuesrules:
+          type: number
+
+loadRemainingLayersFromDb:
+  type: boolean
+  default: true
+
+disableAttributes:
+  type: boolean
+  default: false
+
+global:
+  type: dict
+  schema:
+    coordinatesScaling:
+      type: dict
+      keysrules:
+        type: string
+        regex: ^(x|y|z|xy|yz|xyz)$
+      valuesrules:
+        type: number
