@@ -19,7 +19,7 @@
 // SOFTWARE.
 
 #include "Datasource.h"
-#include "Database.h"
+#include "ConfigLoader.h"
 
 #include <mapget/log.h>
 
@@ -41,26 +41,32 @@ int main(int argc, char** argv)
 
     std::filesystem::path mapPath, configPath;
     uint16_t port;
-    bool isVerbose, isNoAttributes;
+    bool isVerbose, isNoAttributes, isAttributes;
 
     po::options_description description{"Allowed options"};
     description.add_options()
         ("help,h", "produce help message")
-        ("map,m", po::value(&mapPath)->required(), "path to a spatialite database to use")
-        ("port,p", po::value(&port)->default_value(0), "http server port")
+        ("map,m", po::value(&mapPath), "path to a spatialite database to use")
+        ("port,p", po::value(&port), "http server port")
         ("config,c", po::value(&configPath), "path to a datasource config in json format (will retrieve the info from the db if not provided)")
-        ("no-attributes", po::bool_switch(&isNoAttributes), "do not add any attributes to features")
+        ("attributes", po::bool_switch(&isAttributes), "enable features attributes (enabled by default)")
+        ("no-attributes", po::bool_switch(&isNoAttributes), "disable features attributes ")
         ("verbose,v", po::bool_switch(&isVerbose), "enable debug logs");
 
+    po::variables_map vm;
     try 
     {
-        po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, description), vm);
 
-        if (vm.count("help"))
+        if (vm.contains("help"))
         {
             std::cout << description << std::endl;
             return 1;
+        }
+
+        if (isAttributes && isNoAttributes)
+        {
+            throw std::runtime_error("Conflicting options were provided");
         }
 
         po::notify(vm);
@@ -80,18 +86,27 @@ int main(int argc, char** argv)
         spatialite_shutdown();
     } BOOST_SCOPE_EXIT_END
     
-    nlohmann::json config;
-    if (!configPath.empty())
+    SpatialiteDatasource::OverrideOptions options;
+    if (vm.contains("port"))
     {
-        mapget::log().info("Reading config from {}", configPath.string());
-        std::ifstream configFile{configPath};
-        configFile >> config;
+        options.port = port;
+    }
+    if (vm.contains("map"))
+    {
+        options.mapPath = mapPath;
+    }
+    if (isAttributes)
+    {
+        options.disableAttributes = false;
+    }
+    else if (isNoAttributes)
+    {
+        options.disableAttributes = true;
     }
 
-    SpatialiteDatasource::Datasource ds{
-        mapPath, config, port,
-        isNoAttributes ? SpatialiteDatasource::UseAttributes::No : SpatialiteDatasource::UseAttributes::Yes};
-    ds.Run();
+    SpatialiteDatasource::Datasource datasource = configPath.empty() ? 
+        SpatialiteDatasource::CreateDatasourceDefaultConfig(options) : SpatialiteDatasource::CreateDatasource(configPath, options);
+    datasource.Run();
 
     return 0;
 }

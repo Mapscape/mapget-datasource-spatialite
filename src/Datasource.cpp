@@ -19,162 +19,25 @@
 // SOFTWARE.
 
 #include "Datasource.h"
-#include "TableInfo.h"
-#include "GeometryType.h"
 #include "MapgetFeature.h"
 
-#include <fmt/ranges.h>
-#include <boost/algorithm/string/case_conv.hpp>
-#include <nlohmann/json.hpp>
 #include <mapget/log.h>
-#include <spatialite/gg_const.h>
 
-#include <filesystem>
 #include <stdexcept>
 #include <ranges>
 
 namespace SpatialiteDatasource {
 
-static std::string GetTableNameFromLayerInfo(const std::shared_ptr<mapget::LayerInfo>& info)
+Datasource::Datasource(ConfigLoader&& configLoader)
+    : m_db{configLoader.GetDatasourceOptions().mapPath}
+    , m_ds{mapget::DataSourceInfo::fromJson(configLoader.GenerateDatasourceConfig(m_db))}
+    , m_tablesInfo{configLoader.LoadTablesInfo(m_db)}
+    , m_port{configLoader.GetDatasourceOptions().port}
 {
-    return boost::to_lower_copy(info->featureTypes_[0].name_);
-}
-
-Datasource::Datasource(const std::filesystem::path& mapPath, const nlohmann::json& config, uint16_t port, UseAttributes useAttributes)
-    : m_db{mapPath}
-    , m_ds{config.contains("datasourceInfo") ? mapget::DataSourceInfo::fromJson(config.at("datasourceInfo"))
-                                             : LoadDataSourceInfoFromDatabase(m_db)}
-    , m_port{port}
-{
-    LoadDefaultTablesInfo();
-
-    const auto coordinatesScalingIt = config.find("coordinatesScaling");
-    if (coordinatesScalingIt != config.end())
+    for (const auto& table : std::views::keys(m_tablesInfo))
     {
-        LoadCoordinatesScaling(*coordinatesScalingIt);
-    }
-    if (useAttributes == UseAttributes::Yes)
-    {
-        const auto attributesInfo = config.find("attributesInfo");
-        LoadAttributes(attributesInfo != config.end() ? *attributesInfo : nlohmann::json::object());
-    }
-}
-
-static void LogTablesInfo(const TablesInfo& info)
-{
-    std::string log = "Loaded attributes config:";
-    constexpr auto Indent = 2;
-    for (const auto& [table, tableInfo] : info)
-    {
-        log += fmt::format("\n{0:{1}}{2}:", "", Indent * 1, table);
-        
-        log += fmt::format("\n{0:{1}}{2}:", "", Indent * 2, "coordinatesScaling");
-        const auto& scaling = tableInfo.scaling;
-        log += fmt::format("\n{0:{1}}x: {2}", "", Indent * 3, scaling.x);
-        log += fmt::format("\n{0:{1}}y: {2}", "", Indent * 3, scaling.y);
-        log += fmt::format("\n{0:{1}}z: {2}", "", Indent * 3, scaling.z);
-
-        log += fmt::format("\n{0:{1}}{2}:", "", Indent * 2, "attributes");
-        for (const auto& [attribute, attributeInfo] : tableInfo.attributes)
-        {
-            log += fmt::format("\n{0:{1}}{2}({3})", "", Indent * 3, attribute, ColumnTypeToString(attributeInfo.type));
-            if (attributeInfo.relation.has_value())
-            {
-                const auto& relation = attributeInfo.relation.value();
-                log += fmt::format(":\n{0:{1}}columns: {2}\n{0:{1}}matchCondition: {3}\n{0:{1}}delimiter: '{4}'", 
-                    "", Indent * 4, 
-                    fmt::join(relation.columns, ", "),
-                    relation.matchCondition,
-                    relation.delimiter);
-            }
-        }
-    }
-    mapget::log().info(log);
-}
-
-static ScalingInfo ParseScalingConfig(const nlohmann::json::object_t& config)
-{
-    ScalingInfo result;
-    for (const auto& [key, value] : config)
-    {
-        for (const auto& proj : key)
-        {
-            switch (proj)
-            {
-            case 'x':
-                result.x = value;
-                break;
-            case 'y':
-                result.y = value;
-                break;
-            case 'z':
-                result.z = value;
-                break;
-            default:
-                throw std::runtime_error{fmt::format("Unknown projection '{}' in '{}'", proj, key)};
-            }
-        }
-    }
-    return result;
-}
-
-void Datasource::LoadDefaultTablesInfo()
-{
-    const auto tables = m_ds.info().layers_ | std::views::values | std::views::transform(GetTableNameFromLayerInfo);
-    for (const auto&& table : tables)
-    {
-        m_tablesInfo.emplace(std::piecewise_construct, std::forward_as_tuple(table), std::forward_as_tuple(table, m_db));
         m_featuresTilesByTable[table];
     }
-}
-
-void Datasource::LoadCoordinatesScaling(const nlohmann::json& coordinatesScalingConfig)
-{
-    const auto globalConfigIt = coordinatesScalingConfig.find("global");
-    if (globalConfigIt != coordinatesScalingConfig.end())
-    {
-        const auto scaling = ParseScalingConfig(globalConfigIt.value());
-        for (auto& info : m_tablesInfo | std::views::values)
-        {
-            info.scaling = scaling;
-        }
-    }
-    const auto layersConfigIt = coordinatesScalingConfig.find("layers");
-    if (layersConfigIt != coordinatesScalingConfig.end())
-    {
-        for (const auto& [layer, scaling] : layersConfigIt.value().items())
-        {
-            const auto table = GetTableNameFromLayerInfo(m_ds.info().layers_.at(layer));
-            m_tablesInfo.at(table).scaling = ParseScalingConfig(scaling);
-        }
-    }
-}
-
-void Datasource::LoadAttributes(const nlohmann::json& attributesConfig)
-{
-    for (const auto& [layer, layerInfo] : m_ds.info().layers_)
-    {
-        const auto table = GetTableNameFromLayerInfo(layerInfo);
-        auto& tableInfo = m_tablesInfo.at(table);
-        const auto layerAttributesInfo = attributesConfig.find(layer);
-        if (layerAttributesInfo != attributesConfig.end())
-        {
-            const auto getFromDbFlag = layerAttributesInfo->value("getRemainingAttributesFromDb", true);
-            if (getFromDbFlag)
-            {
-                m_db.FillTableAttributes(tableInfo);
-            }
-            for (const auto& [attributeName, attributeDescription] : layerAttributesInfo->at("attributes").items())
-            {
-                tableInfo.attributes[attributeName] = ParseAttributeInfo(attributeDescription);
-            }
-        }
-        else
-        {
-            m_db.FillTableAttributes(tableInfo);
-        }
-    }
-    LogTablesInfo(m_tablesInfo);
 }
 
 [[nodiscard]] std::string Datasource::GetLayerIdFromTypeId(const std::string& typeId)
@@ -223,70 +86,6 @@ void Datasource::Run()
     m_ds.go("0.0.0.0", m_port);
     mapget::log().info("Running on port {}...", m_ds.port());
     m_ds.waitForSignal();
-}
-
-[[nodiscard]] mapget::DataSourceInfo Datasource::LoadDataSourceInfoFromDatabase(const Database& db)
-{
-    nlohmann::json infoJson;
-    infoJson["mapId"] = db.GetDatabaseFilePath();
-    infoJson["layers"] = nlohmann::json::object();
-    auto& layers = infoJson["layers"];
-
-    const auto tables = db.GetTablesNames();
-    for (const auto& table : tables)
-    {
-        layers[table] = {{"featureTypes", nlohmann::json::array({nlohmann::json::object({
-            {"name", table},
-            {"uniqueIdCompositions", nlohmann::json::array({nlohmann::json::array({nlohmann::json::object({
-                {"partId", "id"},
-                {"datatype", "I32"}
-        })})})}})})}};
-    }
-    mapget::log().info("Datasource info read from the database:\n{}", infoJson.dump(2));
-    return mapget::DataSourceInfo::fromJson(infoJson);
-}
-
-[[nodiscard]] AttributeInfo Datasource::ParseAttributeInfo(const nlohmann::json& attributeDescription) const
-{
-    AttributeInfo attribute;
-    std::optional<ColumnType> type;
-    const auto typeIter = attributeDescription.find("type");
-    if (typeIter != attributeDescription.end())
-    {
-        type = ParseColumnType(*typeIter);
-    }
-
-    const auto relationIter = attributeDescription.find("relation");
-    if (relationIter != attributeDescription.end())
-    {
-        auto& relation = attribute.relation.emplace();
-        relation.delimiter = relationIter->value("delimiter", "|");;
-        relation.matchCondition = relationIter->at("matchCondition");
-        const auto& relatedColumns = relationIter->at("relatedColumns");
-        if (relatedColumns.size() == 1)
-        {
-            std::string columnName = relatedColumns[0];
-            auto tableName = columnName.substr(0, columnName.find('.'));
-            if (!type.has_value())
-            {
-                type = m_db.GetColumnType(tableName, columnName);
-            }
-            relation.columns.emplace_back(std::move(columnName));
-        }
-        else 
-        {
-            if (!type.has_value())
-            {
-                type = ColumnType::Text;
-            }
-            for (std::string column : relatedColumns)
-            {
-                relation.columns.emplace_back(std::move(column));
-            }
-        }
-    }
-    attribute.type = type.value();
-    return attribute;
 }
 
 void Datasource::FillTileWithGeometries(const mapget::TileFeatureLayer::Ptr& tile)
@@ -357,6 +156,16 @@ void Datasource::CreateGeometries(const mapget::TileFeatureLayer::Ptr& tile, con
     }
 
     return responses;
+}
+
+Datasource CreateDatasourceDefaultConfig(const OverrideOptions& options)
+{
+    return Datasource{{YAML::Load(""), options}};
+}
+
+Datasource CreateDatasource(const std::filesystem::path& configPath, const OverrideOptions& options)
+{
+    return Datasource{{YAML::LoadFile(configPath), options}};
 }
 
 } // namespace SpatialiteDatasource

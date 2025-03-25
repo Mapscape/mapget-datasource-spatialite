@@ -6,15 +6,18 @@ This project represents a datasource for [Mapget](https://github.com/ndsev/mapge
 
 Usage:
 ```
-  -h [ --help ]          produce help message
-  -m [ --map ] arg       path to a spatialite database to use
-  -p [ --port ] arg (=0) http server port
-  -c [ --config ] arg    path to a datasource config in json format (will retrieve the info from the db if not provided)
-  --no-attributes        do not add any attributes to features
-  -v [ --verbose ]       enable debug logs
+  -h [ --help ]         produce help message
+  -m [ --map ] arg      path to a spatialite database to use
+  -p [ --port ] arg     http server port
+  -c [ --config ] arg   path to a datasource config in json format (will 
+                        retrieve the info from the db if not provided)
+  --attributes          enable features attributes (enabled by default)
+  --no-attributes       disable features attributes 
+  -v [ --verbose ]      enable debug logs
 ```
 
-Config file is optional, the format is described in [config_description.jsonc](config_description.jsonc) file
+Config file is optional, the format is described in [config_description.yaml](config_description.yaml) file.
+Command line arguments `--map`, `--port`, `--(no-)attributes` override values from the config.
 
 With Mapget and Erdblick it can be used like this:
 ```

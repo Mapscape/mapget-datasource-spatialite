@@ -75,11 +75,6 @@ public:
     [[nodiscard]] std::vector<std::string> GetTablesNames() const;
 
     /**
-     * @brief Get the path to the database
-     */
-    [[nodiscard]] const std::string& GetDatabaseFilePath() const;
-
-    /**
      * @brief Fill a description of additional attributes (all columns besides primary key and geometry)
      */
     void FillTableAttributes(TableInfo& tableInfo) const;

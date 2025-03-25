@@ -74,6 +74,12 @@ public:
     Table(SQLite::Database& db, std::string_view name, const std::vector<Column>& columns);
     ~Table();
 
+    Table(const Table&) = delete;
+    Table(Table&&) = default;
+
+    Table& operator=(const Table&) = delete;
+    Table& operator=(Table&&) = delete;
+
     void AddGeometryColumn(const std::string& geometryColumn, const std::string& geometry, int srid = Wgs84Srid);
     void CreateSpatialIndex(SpatialiteDatasource::SpatialIndex spatialIndex);
     [[nodiscard]] const std::string& GetGeometryColumnName() const;
@@ -101,7 +107,7 @@ private:
     void RemoveNavInfoIndex();
 
 public:
-    const std::string name;
+    std::string name;
 
 private:
     SQLite::Database& m_db;
