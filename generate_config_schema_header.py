@@ -1,4 +1,4 @@
-# Copyright (c) 2024 NavInfo Europe B.V.
+# Copyright (c) 2025 NavInfo Europe B.V.
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,30 +18,29 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-add_compile_definitions(NAVINFO_INTERNAL_BUILD=$<BOOL:${NAVINFO_INTERNAL_BUILD}>)
+import sys
+import os
 
-add_executable(unit-test
-    main.cpp
-    AttributesTest.cpp
-    ConfigLoaderTest.cpp
-    DatabaseTestFixture.h
-    DatabaseTestFixture.cpp
-    DatabaseTest.cpp
-    FeatureMock.h
-    GeometriesTest.cpp
-    ScalingTest.cpp
-    TestDbDriver.h
-    TestDbDriver.cpp
-    Table.h
-    Table.cpp
-    $<IF:$<BOOL:${NAVINFO_INTERNAL_BUILD}>,NavInfoIndex.cpp,NavInfoIndexDummy.cpp>
-)
+if len(sys.argv) < 3:
+    print("Error: less arguments than expected")
+    print("Usage: generate_config_schema_header.py schema.yaml header.h")
+    exit(-1)
 
-target_link_libraries(unit-test
-    ${PROJECT_NAME}-lib
-    gtest::gtest
-    
-    ${NAVINFO_INDEX_LIBS}
-)
+schema_path = sys.argv[1]
+header_path = sys.argv[2]
 
-add_test(NAME mapget-datasource-spatialite-test COMMAND unit-test)
+schema = ''
+with open(schema_path, 'r') as schema_file:
+    schema = schema_file.read()
+
+os.makedirs(os.path.dirname(header_path), exist_ok=True)
+with open(header_path, 'w') as header_file:
+    header_file.write(f'''#pragma once
+
+namespace SpatialiteDatasource {{
+
+inline constexpr const char* ConfigSchema = R"YAML({schema})YAML";
+
+}} // namespace SpatialiteDatasource
+''')
+

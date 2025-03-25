@@ -42,26 +42,29 @@ Table::Table(
 
 Table::~Table()
 {
-    if (m_geometryColumn.has_value())
+    if (!name.empty())
     {
-        using SpatialiteDatasource::SpatialIndex;
-
-        switch (m_geometryColumn->indexType)
+        if (m_geometryColumn.has_value())
         {
-        case SpatialIndex::RTree:
-        case SpatialIndex::MbrCache:
-            SQLite::Statement{m_db, fmt::format("SELECT DisableSpatialIndex('{}', '{}');", name, m_geometryColumn->name)}.executeStep();
-            break;
-        case SpatialIndex::NavInfo:
-            RemoveNavInfoIndex();
-            break;
-        default:
-            break;
+            using SpatialiteDatasource::SpatialIndex;
+
+            switch (m_geometryColumn->indexType)
+            {
+            case SpatialIndex::RTree:
+            case SpatialIndex::MbrCache:
+                SQLite::Statement{m_db, fmt::format("SELECT DisableSpatialIndex('{}', '{}');", name, m_geometryColumn->name)}.executeStep();
+                break;
+            case SpatialIndex::NavInfo:
+                RemoveNavInfoIndex();
+                break;
+            default:
+                break;
+            }
+            SQLite::Statement{m_db, fmt::format("SELECT DiscardGeometryColumn('{}', '{}');", name, m_geometryColumn->name)}.executeStep();
         }
-        SQLite::Statement{m_db, fmt::format("SELECT DiscardGeometryColumn('{}', '{}');", name, m_geometryColumn->name)}.executeStep();
+        
+        SQLite::Statement{m_db, fmt::format("DROP TABLE {};", name)}.exec();
     }
-    
-    SQLite::Statement{m_db, fmt::format("DROP TABLE {};", name)}.exec();
 }
 
 void Table::AddGeometryColumn(const std::string& geometryColumn, const std::string& geometry, int srid)

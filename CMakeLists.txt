@@ -48,7 +48,34 @@ else()
             GIT_SHALLOW    ON
             EXCLUDE_FROM_ALL)
     FetchContent_MakeAvailable(mapget)
+
+    set(CERBERUS_CPP_FIND_YAML_CPP OFF) # mapget is alredy using it
+
+    FetchContent_Declare(cerberus-cpp
+        GIT_REPOSITORY "https://github.com/dokempf/cerberus-cpp"
+        GIT_TAG        "422b9c98d385891cde85705b311638412a3307d5"
+        GIT_SHALLOW    ON
+        EXCLUDE_FROM_ALL)
+    FetchContent_MakeAvailable(cerberus-cpp)
 endif()
+
+set(CONFIG_SCHEMA_HEADER ${CMAKE_BINARY_DIR}/generated/ConfigSchema.h)
+
+add_custom_command(
+    OUTPUT ${CONFIG_SCHEMA_HEADER}
+    COMMAND python3
+    ARGS generate_config_schema_header.py config_schema.yaml ${CONFIG_SCHEMA_HEADER}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    DEPENDS generate_config_schema_header.py config_schema.yaml
+)
+
+add_custom_target(generate-config-schema ALL
+    DEPENDS ${CONFIG_SCHEMA_HEADER}
+)
+
+add_library(generated-files INTERFACE)
+target_include_directories(generated-files INTERFACE ${CMAKE_BINARY_DIR}/generated)
+add_dependencies(generated-files generate-config-schema)
 
 add_subdirectory(src)
 

@@ -22,37 +22,27 @@
 #include "Database.h"
 #include "GeometryType.h"
 #include "TableInfo.h"
+#include "ConfigLoader.h"
 
 #include <mapget/http-datasource/datasource-server.h>
+#include <filesystem>
 
 namespace SpatialiteDatasource {
-
-enum class UseAttributes
-{
-    No,
-    Yes
-};
 
 class Datasource
 {
 public:
-    /**
-     * @brief Construct a new Datasource object
-     * 
-     * @param mapPath Path to a spatialite database
-     * @param config Parsed json config as `nlohmann::json` object
-     * @param port Port which the HTTP server shall bind to.
-     *  With port=0, a random free port will be chosen.
-     * @param useAttributes Whether to add attributes to features or not
-     */
-    Datasource(const std::filesystem::path& mapPath, const nlohmann::json& config, uint16_t port, UseAttributes useAttributes);
-
     /**
      * @brief Run the datasource server
      */
     void Run();
 
 private:
+    explicit Datasource(ConfigLoader&& configLoader);
+
+    friend Datasource CreateDatasourceDefaultConfig(const OverrideOptions& options);
+    friend Datasource CreateDatasource(const std::filesystem::path& configPath, const OverrideOptions& options);
+
     struct FeatureTileMapThreadSafe
     {
         std::shared_mutex lock;
@@ -60,13 +50,6 @@ private:
     };
 
     [[nodiscard]] std::string GetLayerIdFromTypeId(const std::string& typeId);
-
-    [[nodiscard]] static mapget::DataSourceInfo LoadDataSourceInfoFromDatabase(const Database& db);
-
-    void LoadDefaultTablesInfo();
-    void LoadCoordinatesScaling(const nlohmann::json& coordinatesScalingConfig);
-    void LoadAttributes(const nlohmann::json& attributesConfig);
-    [[nodiscard]] AttributeInfo ParseAttributeInfo(const nlohmann::json& attributeDescription) const;
 
     /**
      * @brief Fill the given tile with geometries
@@ -93,11 +76,27 @@ private:
 private:
     Database m_db;
     mapget::DataSourceServer m_ds;
-    TablesInfo m_tablesInfo;
     std::unordered_map<
         std::string, // typeId (table)
         FeatureTileMapThreadSafe> m_featuresTilesByTable;
+
+    const TablesInfo m_tablesInfo;
     const uint16_t m_port = 0;
 };
+
+/**
+ * @brief Create a datasource with default config
+ * 
+ * @param options Options that will override the options from the config
+ */
+Datasource CreateDatasourceDefaultConfig(const OverrideOptions& options);
+
+/**
+ * @brief Create a datasource object
+ * 
+ * @param configPath Path to a config
+ * @param options Options that will override the options from the config
+ */
+Datasource CreateDatasource(const std::filesystem::path& configPath, const OverrideOptions& options);
 
 } // namespace SpatialiteDatasource

@@ -1,0 +1,57 @@
+# Optional. Map description
+map:
+  # mapId from Erdblick
+  name: mapName
+  # Path to the map. Required if '--map' argument is not provided. Can be overriden by the argument
+  path: /path/to/map
+
+# Optional. 0 by default. Can be overriden by '--port' argument
+datasourcePort: 0
+
+# Array of layers with their descriptions
+layers:
+# Table name from the db
+- table: tableName
+  # Optional. Name of the layer how it will be displayed in Erdblick. Table name will be used if not provided
+  name: layerName
+  # attributes description
+  attributes:
+  # Must be the same as column name in the layer table if no relation is provided
+  - name: attribute
+    # Optional. Will be retrieved from the db if not present
+    type: <attribute_type(integer,float,text,blob)>
+    # Relation description. Can be useful for enum values, 
+    # when there is only a number in the feature table 
+    # and the name of the enum is in another table (or another column)
+    relation:
+      # Column(s) with the related info. If multiple columns are provided, 
+      # they will be concatenated in a single text attribute
+      relatedColumns:
+      - <table_name1>.<column_name1>
+      - <table_name2>.<column_name2>
+      # Optional, '|' by default. Delimiter for concatenated related columns if there are more than 1
+      delimiter: '|'
+      # SQL condition to match the related columns. 
+      # 'layerTable' must be used to refer to the table with the feature
+      # example: myTable.category = 'Road' AND myTable.value = layerTable.value
+      matchCondition: <condition>
+  # Optional, true by default. Only attributes from this config will be shown if false
+  loadRemainingAttributesFromDb: true
+  # Scale geometries coordinates, overrides global config.
+  # Different combinations of projections can be provided
+  coordinatesScaling:
+    xy: 0.001
+    z: 0.1
+- table: anotherTableName
+
+# Optional, true by default. Only layers from this config will be shown if false.
+loadRemainingLayersFromDb: true
+# Disable attributes at all, false by default. Can be overriden by '--(no-)attributes' argument
+disableAttributes: false
+
+# Configuration that applies to all layers.
+globalLayersConfig:
+  # Scale geometries coordinates.
+  # Different combinations of projections can be provided
+  coordinatesScaling:
+    xyz: 10

@@ -43,6 +43,8 @@ std::string_view ColumnTypeToString(ColumnType columnType);
 
 struct Relation
 {
+    [[nodiscard]] bool operator==(const Relation&) const = default;
+
     std::vector<std::string> columns;
     std::string delimiter;
     std::string matchCondition;
@@ -50,6 +52,8 @@ struct Relation
 
 struct AttributeInfo
 {
+    [[nodiscard]] bool operator==(const AttributeInfo&) const = default;
+
     ColumnType type = ColumnType::Blob;
     std::optional<Relation> relation{std::nullopt};
 };
@@ -59,6 +63,8 @@ using AttributesInfo = std::unordered_map<std::string, AttributeInfo>;
 
 struct ScalingInfo
 {
+    [[nodiscard]] bool operator==(const ScalingInfo&) const = default;
+
     double x = 1;
     double y = 1;
     double z = 1;
@@ -72,6 +78,7 @@ struct TableInfo
     TableInfo(const std::string& name, const Database& db);
 
     const std::string& GetSqlQuery() const;
+    [[nodiscard]] bool operator==(const TableInfo&) const = default;
 
     std::string name;
     std::string primaryKey;

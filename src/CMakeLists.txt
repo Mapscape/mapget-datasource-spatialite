@@ -23,6 +23,8 @@ add_compile_definitions(NAVINFO_INTERNAL_BUILD=$<BOOL:${NAVINFO_INTERNAL_BUILD}>
 add_library(${PROJECT_NAME}-lib STATIC
     TableInfo.h
     TableInfo.cpp
+    ConfigLoader.h
+    ConfigLoader.cpp
     Datasource.h
     Datasource.cpp
     Database.h
@@ -51,6 +53,9 @@ target_link_libraries(${PROJECT_NAME}-lib
     mapget-log
     mapget-model
     mapget-http-datasource
+    yaml-cpp
+    cerberus-cpp
+    generated-files
 )
 
 add_executable(${PROJECT_NAME}

@@ -72,6 +72,7 @@ class MapgetSpatialiteDatasourceConan(ConanFile):
         self.requires('nlohmann_json/3.11.3')
         self.requires('fmt/11.0.1')
         self.requires('gtest/1.15.0')
+        self.requires('yaml-cpp/0.8.0')
 
     def layout(self):
         cmake_layout(self)
