@@ -1,4 +1,4 @@
-// Copyright (c) 2024 NavInfo Europe B.V.
+// Copyright (c) 2025 NavInfo Europe B.V.
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -64,10 +64,10 @@ TEST_P(SpatialiteDatabaseAttributesTest, AttributesAreAddedToFeature)
 
     auto& tableInfo = table.UpdateAndGetTableInfo(geometryType, dimension);
     tableInfo.attributes = {
-            {"intAttribute", {ColumnType::Int64}},
-            {"doubleAttribute", {ColumnType::Double}},
-            {"stringAttribute", {ColumnType::Text}},
-            {"blobAttribute", {ColumnType::Blob}}
+        {"intAttribute", {ColumnType::Int64}},
+        {"doubleAttribute", {ColumnType::Double}},
+        {"stringAttribute", {ColumnType::Text}},
+        {"blobAttribute", {ColumnType::Blob}}
     };
 
     auto geometries = spatialiteDb->GetGeometries(tableInfo, mbr);
@@ -112,10 +112,10 @@ TEST_F(SpatialiteDatabaseAttributesRelationsTest, SingleColumnRelatedAttributeIs
 
     auto geometries = GetGeometries(geometryTable, 
         {{"attribute",
-         {ColumnType::Int64,
-          SpatialiteDatasource::Relation{
-              .columns = {"related_table.meaningfulNumber"},
-              .delimiter = ";",
+            {ColumnType::Int64,
+            SpatialiteDatasource::Relation{
+                .columns = {"related_table.meaningfulNumber"},
+                .delimiter = ";",
                 .matchCondition = "layerTable.myEnum == related_table.value"}}}});
 
     FeatureMock featureMock;
@@ -132,10 +132,10 @@ TEST_F(SpatialiteDatabaseAttributesRelationsTest, MultiColumnSingleTableRelatedA
 
     auto geometries = GetGeometries(geometryTable,
         {{"attribute",
-         {ColumnType::Text,
-          SpatialiteDatasource::Relation{
-              .columns = {"related_table.meaningfulString", "related_table.meaningfulNumber"},
-              .delimiter = " - ",
+            {ColumnType::Text,
+             SpatialiteDatasource::Relation{
+                 .columns = {"related_table.meaningfulString", "related_table.meaningfulNumber"},
+                 .delimiter = " - ",
                  .matchCondition = "layerTable.myEnum == related_table.value"}}}});
 
     FeatureMock featureMock;
@@ -154,10 +154,10 @@ TEST_F(SpatialiteDatabaseAttributesRelationsTest, MultiColumnMultiTableRelatedAt
 
     auto geometries = GetGeometries(geometryTable, 
         {{"attribute",
-         {ColumnType::Text,
-          SpatialiteDatasource::Relation{
-              .columns = {"related_table2.meaningfulNumber", "related_table1.meaningfulNumber"},
-              .delimiter = "*2=",
+            {ColumnType::Text,
+             SpatialiteDatasource::Relation{
+                 .columns = {"related_table2.meaningfulNumber", "related_table1.meaningfulNumber"},
+                 .delimiter = "*2=",
                  .matchCondition = "layerTable.myEnum == related_table1.value AND layerTable.myEnum == related_table2.value"}}}});
 
     FeatureMock featureMock;

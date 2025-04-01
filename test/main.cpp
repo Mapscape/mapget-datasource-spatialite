@@ -1,4 +1,4 @@
-// Copyright (c) 2024 NavInfo Europe B.V.
+// Copyright (c) 2025 NavInfo Europe B.V.
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -17,7 +17,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <gtest/gtest.h>
+
+#include <gmock/gmock.h>
 #include <boost/scope_exit.hpp>
 #include <sqlite3.h>
 #include <spatialite.h>
@@ -29,6 +30,6 @@ int main(int argc, char **argv)
         spatialite_shutdown();
     } BOOST_SCOPE_EXIT_END
 
-    testing::InitGoogleTest(&argc, argv);
+    testing::InitGoogleMock(&argc, argv);
     return RUN_ALL_TESTS();
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 NavInfo Europe B.V.
+// Copyright (c) 2025 NavInfo Europe B.V.
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -113,7 +113,7 @@ public:
      * @return Geometry view that iterates over geometries
      */
     [[nodiscard]] GeometriesView GetGeometries(const TableInfo& tableInfo, const Mbr& mbr) const;
-
+        
 private:
     const SQLite::Database m_db;
     void* m_spatialiteCache;

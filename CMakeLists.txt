@@ -1,4 +1,4 @@
-# Copyright (c) 2024 NavInfo Europe B.V.
+# Copyright (c) 2025 NavInfo Europe B.V.
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -45,8 +45,8 @@ else()
     FetchContent_Declare(mapget
         GIT_REPOSITORY "https://github.com/ndsev/mapget"
         GIT_TAG        "v2024.4.0"
-            GIT_SHALLOW    ON
-            EXCLUDE_FROM_ALL)
+        GIT_SHALLOW    ON
+        EXCLUDE_FROM_ALL)
     FetchContent_MakeAvailable(mapget)
 
     set(CERBERUS_CPP_FIND_YAML_CPP OFF) # mapget is alredy using it

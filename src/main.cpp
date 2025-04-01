@@ -1,4 +1,4 @@
-// Copyright (c) 2024 NavInfo Europe B.V.
+// Copyright (c) 2025 NavInfo Europe B.V.
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -39,9 +39,9 @@ int main(int argc, char** argv)
     auto newLogger = mapget::log().clone("msds");
     mapget::log().swap(*newLogger);
 
-    std::filesystem::path mapPath, configPath;
-    uint16_t port;
-    bool isVerbose, isNoAttributes, isAttributes;
+    std::filesystem::path mapPath{}, configPath{};
+    uint16_t port{0};
+    bool isVerbose{false}, isNoAttributes{false}, isAttributes{false};
 
     po::options_description description{"Allowed options"};
     description.add_options()
@@ -85,7 +85,7 @@ int main(int argc, char** argv)
     BOOST_SCOPE_EXIT(void) {
         spatialite_shutdown();
     } BOOST_SCOPE_EXIT_END
-    
+
     SpatialiteDatasource::OverrideOptions options;
     if (vm.contains("port"))
     {
